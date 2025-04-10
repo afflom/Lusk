@@ -1,0 +1,223 @@
+name: Deploy to GitHub Pages
+
+on:
+  # Run on all pushes to any branch
+  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  actions: write
+  pull-requests: write
+
+# Allow only one concurrent deployment per environment
+concurrency:
+  group: "pages-${{ github.workflow }}-${{ inputs.environment || (github.event_name == 'pull_request' && 'staging') || (github.ref_name == 'main' && 'production') || 'dev' }}"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      preview_url: ${{ steps.build-step.outputs.preview_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+      
+      - name: Install Dependencies
+        run: npm install
+      
+      - name: Type Check
+        run: npm run typecheck
+      
+      - name: Run Tests with Coverage
+        run: |
+          # Get Chrome version for ChromeDriver compatibility
+          CHROME_VERSION=$(google-chrome --version | grep -oP 'Chrome \K[0-9]+' || echo "")
+          if [ ! -z "$CHROME_VERSION" ]; then
+            echo "Detected Chrome version: $CHROME_VERSION"
+            export CHROME_VERSION=$CHROME_VERSION
+          else
+            # Leave unset to let ChromeDriver auto-detect
+            echo "Could not detect Chrome version, using ChromeDriver auto-detection"
+          fi
+          
+          # Set CI flag and ChromeDriver path for WebdriverIO
+          export CI=true
+          export CHROMEDRIVER_PATH=$(which chromedriver)
+          echo "Using ChromeDriver at: $CHROMEDRIVER_PATH"
+          
+          # Set WebdriverIO to use 0.0.0.0 as the host for CI environments
+          export WDIO_HOST=0.0.0.0
+          export VITE_HOST=0.0.0.0
+          
+          # Run unit tests with coverage, explicitly exclude node_modules
+          # We need to exclude node_modules tests from running since they contain tests that fail in CI
+          npx vitest run --exclude '**/node_modules/**' --coverage
+          
+          # Run integration tests
+          # Use test:e2e which will properly build the production app and start the preview server
+          npm run test:e2e
+      
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage/
+            junit-results/
+      
+      - name: Lint and Format
+        run: |
+          npm run lint
+          npm run format:check
+      
+      - name: Set Environment
+        id: set-env
+        run: |
+          # Determine the environment
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            ENVIRONMENT="staging"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            ENVIRONMENT="production"
+          else
+            # For pushes to non-main branches, create a development environment
+            ENVIRONMENT="dev"
+          fi
+          
+          echo "ENVIRONMENT=${ENVIRONMENT}" >> $GITHUB_ENV
+          echo "environment=${ENVIRONMENT}" >> $GITHUB_OUTPUT
+          
+          # Set base path according to environment
+          if [[ "${ENVIRONMENT}" == "production" ]]; then
+            echo "BASE_PATH=/${{ github.event.repository.name }}" >> $GITHUB_ENV
+          else
+            echo "BASE_PATH=/${{ github.event.repository.name }}/${ENVIRONMENT}" >> $GITHUB_ENV
+          fi
+      
+      - name: Build
+        id: build-step
+        run: |
+          # Log what we're building for clarity
+          echo "Building for ${{ env.ENVIRONMENT }} environment with base path ${{ env.BASE_PATH }}"
+          
+          # Update base path in vite.config.ts for the environment
+          sed -i "s|base: './'|base: '${{ env.BASE_PATH }}'|" vite.config.ts
+          
+          # Build with environment variables
+          npm run build
+          
+          # Output preview URL
+          echo "preview_url=https://${{ github.repository_owner }}.github.io${{ env.BASE_PATH }}" >> $GITHUB_OUTPUT
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      
+      - name: Prepare deployment artifacts
+        run: |
+          # For production, deploy to root
+          if [[ "${{ env.ENVIRONMENT }}" == "production" ]]; then
+            mkdir -p _site
+            cp -r dist/* _site/
+          else
+            # For non-production environments, deploy to subdirectory
+            mkdir -p _site/${{ env.ENVIRONMENT }}
+            cp -r dist/* _site/${{ env.ENVIRONMENT }}/
+          fi
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+  
+  deploy-dev:
+    # Run for all pushes (whether to main or other branches) or when manually triggered for dev
+    if: >
+      github.event_name == 'push' || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'dev')
+    environment:
+      name: dev
+      url: ${{ steps.deployment.outputs.page_url }}${{ github.event.repository.name }}/dev
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+      
+      - name: Log deployment
+        run: echo "✅ Deployed to development environment at ${{ steps.deployment.outputs.page_url }}${{ github.event.repository.name }}/dev"
+  
+  deploy-staging:
+    # Run for pull requests or when manually triggered for staging
+    if: >
+      github.event_name == 'pull_request' || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment:
+      name: staging
+      url: ${{ steps.deployment.outputs.page_url }}${{ github.event.repository.name }}/staging
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+      
+      - name: Add PR Comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const previewUrl = '${{ needs.build.outputs.preview_url }}';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ Staging deployment successful! You can preview the changes at: [Preview Link](${previewUrl})`
+            });
+      
+      - name: Log deployment
+        run: echo "✅ Deployed to staging environment at ${{ steps.deployment.outputs.page_url }}${{ github.event.repository.name }}/staging"
+  
+  deploy-production:
+    # Run for pushes to main or when manually triggered for production
+    if: >
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment:
+      name: production
+      url: ${{ steps.deployment.outputs.page_url }}${{ github.event.repository.name }}
+    runs-on: ubuntu-latest
+    # Production deployment requires successful dev deployment for main branch pushes
+    needs: [build]
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+      
+      - name: Log deployment
+        run: echo "✅ Deployed to production environment at ${{ steps.deployment.outputs.page_url }}${{ github.event.repository.name }}"

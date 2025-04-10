@@ -1,0 +1,397 @@
+name: Claude Automation
+
+on:
+  issues:
+    types:
+      - labeled
+
+# Only maintainers should be able to assign the claude label to trigger this workflow
+# The permissions are for the GITHUB_TOKEN used by Claude
+permissions:
+  contents: write  # Needed to create branches and push changes
+  pull-requests: write  # Needed to create pull requests
+  issues: write  # Needed to comment on issues
+  actions: write  # Needed to allow PR creation from workflows
+  checks: write   # Needed for workflows to create check runs
+  statuses: write # Needed for status updates
+
+# This is the default implementation method
+# For information on choosing between implementations, see .github/CLAUDE_AUTOMATION.md
+
+# Define global workflow parameters to avoid hardcoding values
+# Note: The workflow uses 'gh' CLI commands which automatically use the GITHUB_TOKEN
+# GitHub Actions workflows require specific permissions to create PRs (see above)
+env:
+  NODE_VERSION: "18.x"
+  MIN_ISSUE_LENGTH: 100
+  MAX_API_RETRIES: 3       # Max retries for Claude API calls
+  BASE_RETRY_DELAY: 10     # Base delay seconds between retries
+  MAX_HOOK_RETRIES: 10     # Max retries for pre-commit hook failures
+  HOOK_RETRY_DELAY: 60     # Seconds to wait before retrying after hook failure
+
+jobs:
+  check-label:
+    name: Check if label is claude
+    runs-on: ubuntu-latest
+    if: ${{ github.event.label.name == 'claude' }}
+    
+    steps:
+      - name: Check if issue has enough information
+        id: check-issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            
+            // Check if issue description is too short
+            if (issue.data.body.length < process.env.MIN_ISSUE_LENGTH) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `❌ This issue doesn't have enough details for Claude to implement. Please add more information and request the label to be added again.`
+              });
+              
+              // Remove the claude label
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: 'claude'
+              });
+              
+              return core.setFailed('Issue description is not detailed enough');
+            }
+            
+            console.log('Issue has enough details for Claude to implement');
+            return issue.data.body;
+
+  implement-with-claude:
+    name: Implement with Claude
+    needs: check-label
+    runs-on: ubuntu-latest
+    
+    env:
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      ISSUE_TITLE: ${{ github.event.issue.title }}
+      ISSUE_BODY: ${{ github.event.issue.body }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+        
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Claude CLI
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          
+      - name: Create branch for changes
+        run: |
+          # Create a sanitized branch name from the issue title
+          BRANCH_NAME="claude/issue-${{ github.event.issue.number }}"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+          
+          git config --global user.name "Claude AI"
+          git config --global user.email "claude-ai@anthropic.com"
+          
+          git checkout -b $BRANCH_NAME
+      
+      - name: Prepare issue description for Claude
+        run: |
+          # Create a file with the issue details
+          cat > issue-details.md << EOL
+          # Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
+          
+          ${{ github.event.issue.body }}
+          EOL
+      
+      - name: Run Claude to implement solution
+        id: claude-implementation
+        run: |
+          # Create a prompt file for Claude
+          cat > claude-prompt.txt << EOL
+          You are tasked with implementing a solution for GitHub issue #${{ github.event.issue.number }}.
+          
+          # IMPORTANT INSTRUCTIONS
+          You MUST implement the solution by modifying the codebase directly. You have FULL PERMISSION to:
+          1. Edit any existing files
+          2. Delete files if needed
+          3. Create new files
+          4. Make any changes required by the issue
+          
+          The ONLY files you CANNOT modify are:
+          - CLAUDE.md file
+          - Any files in the .husky/ directory
+          - Any pre-commit or pre-push hook scripts
+          - scripts/ensure-claude-code.sh
+          
+          Your job is to:
+          1. Analyze the issue description below
+          2. Implement the requested changes to the codebase - DO NOT ASK FOR PERMISSION, just implement the changes
+          3. Follow the project's code style and conventions
+          4. Write tests for your implementation
+          5. Make sure the implementation passes all pre-commit hooks
+          
+          GitHub Issue Details:
+          ---------------------
+          Title: ${{ github.event.issue.title }}
+          
+          $(cat issue-details.md)
+          ---------------------
+          
+          Please implement a solution and provide a detailed explanation of your changes for the PR description.
+          EOL
+          
+          # Run Claude to implement the solution
+          echo "Running Claude to implement the solution..."
+          
+          # Implement retry logic for Claude API
+          MAX_API_RETRIES=${{ env.MAX_API_RETRIES }}
+          API_RETRY_COUNT=0
+          API_SUCCESS=false
+          
+          while [ $API_RETRY_COUNT -lt $MAX_API_RETRIES ] && [ "$API_SUCCESS" = false ]; do
+            # Capture both stdout and stderr, but also show in workflow logs
+            echo "Running Claude with prompt:"
+            cat claude-prompt.txt
+            echo "-----------------------------------"
+            
+            # Run Claude and save output to a file while also displaying it in logs
+            claude -p "$(cat claude-prompt.txt)" > claude-response.md 2> claude-error.log
+            CLAUDE_EXIT_CODE=$?
+            
+            # Always show the output in the logs regardless of success/failure
+            echo "-----------------------------------"
+            echo "Claude output (from response file):"
+            cat claude-response.md
+            
+            if [ -s claude-error.log ]; then
+              echo "-----------------------------------"
+              echo "Claude error output:"
+              cat claude-error.log
+            fi
+            
+            # Check if Claude ran successfully
+            if [ $CLAUDE_EXIT_CODE -eq 0 ]; then
+              API_SUCCESS=true
+              echo "-----------------------------------"
+              echo "Claude completed implementation successfully"
+            else
+              API_RETRY_COUNT=$((API_RETRY_COUNT+1))
+              ERROR_CODE=$?
+              echo "Claude execution failed with exit code $ERROR_CODE (API Attempt $API_RETRY_COUNT of $MAX_API_RETRIES)"
+              echo "-----------------------------------"
+              echo "Error output:"
+              cat claude-error.log
+              
+              if [ $API_RETRY_COUNT -lt $MAX_API_RETRIES ]; then
+                # Wait before retrying (exponential backoff)
+                SLEEP_TIME=$((${{ env.BASE_RETRY_DELAY }} * API_RETRY_COUNT))
+                echo "Waiting $SLEEP_TIME seconds before retrying..."
+                sleep $SLEEP_TIME
+              else
+                # Log the error and provide debugging information
+                echo "::error::Claude failed after $MAX_API_RETRIES API attempts"
+                echo "::error::Last error log:"
+                cat claude-error.log
+                
+                # Create a comment on the issue about the failure
+                gh issue comment ${{ github.event.issue.number }} --body "❌ Claude failed to implement this issue after multiple attempts. A maintainer will need to investigate."
+                
+                # Remove the claude label
+                gh issue edit ${{ github.event.issue.number }} --remove-label claude
+                
+                exit 1
+              fi
+            fi
+          done
+          
+          # Verify we have a meaningful response (not just an error message)
+          RESPONSE_SIZE=$(stat -c%s claude-response.md)
+          if [ $RESPONSE_SIZE -lt 100 ]; then
+            echo "::warning::Claude response seems too short, might not contain implementation details"
+          else
+            echo "Claude response size: $RESPONSE_SIZE bytes, which seems adequate"
+          fi
+      
+      - name: Verify changes
+        run: |
+          # Run linting and tests to verify Claude's changes
+          npm run typecheck
+          npm run lint
+          npm run test
+          
+          # If any of these fail, the workflow will stop
+      
+      - name: Commit and push changes
+        run: |
+          # Initialize hook retry counter
+          HOOK_RETRY_COUNT=0
+          HOOK_SUCCESS=false
+          CURRENT_PROMPT="$(cat claude-prompt.txt)"
+          
+          while [ $HOOK_RETRY_COUNT -lt ${{ env.MAX_HOOK_RETRIES }} ] && [ "$HOOK_SUCCESS" = false ]; do
+            # Check if there are any changes to commit
+            if [[ -n $(git status --porcelain) ]]; then
+              # Stage all changes
+              git add .
+              
+              # Try to commit with pre-commit hooks
+              echo "Attempting to commit changes (Hook attempt $HOOK_RETRY_COUNT of ${{ env.MAX_HOOK_RETRIES }})..."
+              
+              # Capture the commit output including any hook errors
+              if git commit -m "Fix issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
+              
+              Implemented by Claude AI
+              
+              🤖 Generated with [Claude Code](https://claude.ai/code)
+              
+              Co-Authored-By: Claude <noreply@anthropic.com>" > commit-output.txt 2>&1; then
+                # Commit succeeded - hooks passed
+                HOOK_SUCCESS=true
+                echo "Pre-commit hooks passed successfully!"
+                
+                # Push to the new branch
+                git push -u origin $BRANCH_NAME
+                echo "Changes committed and pushed to branch $BRANCH_NAME"
+              else
+                # Commit failed - hook errors
+                HOOK_RETRY_COUNT=$((HOOK_RETRY_COUNT+1))
+                echo "::warning::Pre-commit hook failed (Attempt $HOOK_RETRY_COUNT of ${{ env.MAX_HOOK_RETRIES }})"
+                
+                # Display hook output
+                echo "Hook output:"
+                cat commit-output.txt
+                
+                # Extract hook feedback for Claude
+                HOOK_FEEDBACK=$(cat commit-output.txt)
+                
+                if [ $HOOK_RETRY_COUNT -lt ${{ env.MAX_HOOK_RETRIES }} ]; then
+                  echo "Preparing to retry with hook feedback..."
+                  
+                  # Create new prompt with hook feedback for Claude
+                  # Write directly to file to avoid heredoc issues with variable content
+                  echo "You previously tried to implement a solution for GitHub issue #${{ github.event.issue.number }}, but the pre-commit hook detected issues with your implementation." > claude-retry-prompt.txt
+                  echo "" >> claude-retry-prompt.txt
+                  echo "The pre-commit hook detected the following issues:" >> claude-retry-prompt.txt
+                  echo "$HOOK_FEEDBACK" >> claude-retry-prompt.txt
+                  echo "" >> claude-retry-prompt.txt
+                  echo "# CRITICAL INSTRUCTIONS - READ CAREFULLY" >> claude-retry-prompt.txt
+                  echo "1. You MUST FIX ALL issues reported by the pre-commit hook." >> claude-retry-prompt.txt
+                  echo "2. You have FULL PERMISSION to modify any files in the codebase EXCEPT:" >> claude-retry-prompt.txt
+                  echo "   - CLAUDE.md" >> claude-retry-prompt.txt
+                  echo "   - Any files in .husky/ directory" >> claude-retry-prompt.txt
+                  echo "   - Any pre-commit or pre-push hook scripts" >> claude-retry-prompt.txt
+                  echo "   - scripts/ensure-claude-code.sh" >> claude-retry-prompt.txt
+                  echo "" >> claude-retry-prompt.txt
+                  echo "3. IMPLEMENT the solution DIRECTLY. Do NOT ask for permission - you already have it." >> claude-retry-prompt.txt
+                  echo "4. You MUST address EVERY issue reported by the pre-commit hook." >> claude-retry-prompt.txt
+                  echo "5. You MUST FOLLOW THE DIRECTIONS from the pre-commit hook output." >> claude-retry-prompt.txt
+                  echo "" >> claude-retry-prompt.txt
+                  echo "Review the pre-commit feedback carefully - it tells you exactly what needs to be fixed." >> claude-retry-prompt.txt
+                  echo "Your implementation WILL BE REJECTED AGAIN if you don't address all issues in the pre-commit hook output." >> claude-retry-prompt.txt
+                  echo "" >> claude-retry-prompt.txt
+                  echo "Implement the solution NOW. DO NOT ASK FOR PERMISSION. Just fix all the reported issues." >> claude-retry-prompt.txt
+                  
+                  # Run Claude again with the updated prompt
+                  echo "-----------------------------------"
+                  echo "Running Claude with updated prompt including hook feedback:"
+                  cat claude-retry-prompt.txt
+                  echo "-----------------------------------"
+                  
+                  # Run Claude and save output to a file while also displaying it in logs
+                  claude -p "$(cat claude-retry-prompt.txt)" > claude-response.md 2> claude-error.log
+                  
+                  # Always show the output in the logs regardless of success/failure
+                  echo "-----------------------------------"
+                  echo "Claude retry output (from response file):"
+                  cat claude-response.md
+                  
+                  if [ -s claude-error.log ]; then
+                    echo "-----------------------------------"
+                    echo "Claude retry error output:"
+                    cat claude-error.log
+                  fi
+                  
+                  # Update current prompt for next iteration
+                  CURRENT_PROMPT="$(cat claude-retry-prompt.txt)"
+                  
+                  # Wait before trying the next commit
+                  echo "Waiting ${{ env.HOOK_RETRY_DELAY }} seconds before trying to commit again..."
+                  sleep ${{ env.HOOK_RETRY_DELAY }}
+                  
+                  # Reset any staged changes to try the new implementation
+                  git reset --hard HEAD
+                else
+                  # Max hook retries reached
+                  echo "::error::Claude failed to produce code that passes pre-commit hooks after ${{ env.MAX_HOOK_RETRIES }} attempts"
+                  
+                  # Create a comment on the issue about the failure
+                  gh issue comment ${{ github.event.issue.number }} --body "❌ Claude failed to implement this issue after multiple attempts. The pre-commit hooks kept rejecting the implementation. A maintainer will need to investigate."
+                  
+                  # Remove the claude label
+                  gh issue edit ${{ github.event.issue.number }} --remove-label claude
+                  
+                  exit 1
+                fi
+              fi
+            else
+              echo "::warning::No changes were made by Claude"
+              exit 1
+            fi
+          done
+      
+      - name: Create Pull Request
+        id: create-pr
+        run: |
+          # Extract Claude's response for PR description
+          claudeResponse=$(cat claude-response.md)
+          
+          # Create a clean PR body
+          cat > pr-body.txt << EOL
+          This PR addresses issue #${{ github.event.issue.number }}
+          
+          ## Implementation Details
+          
+          $claudeResponse
+          
+          ## Closes
+          
+          Closes #${{ github.event.issue.number }}
+          
+          ---
+          🤖 This PR was created automatically by Claude AI in response to the issue being labeled with "claude".
+          EOL
+          
+          # Create PR using gh cli instead of GitHub API
+          PR_URL=$(gh pr create \
+            --title "Fix issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}" \
+            --body-file pr-body.txt \
+            --head "$BRANCH_NAME" \
+            --base main)
+          
+          echo "PR created: $PR_URL"
+          PR_NUMBER=$(echo $PR_URL | grep -oE '[0-9]+$')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            
+      - name: Add PR comment to issue
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --body "I've created a pull request to address this issue: #${{ steps.create-pr.outputs.pr_number }}
+          
+          Please review the implementation and provide feedback.
+          
+          🤖 - Claude"

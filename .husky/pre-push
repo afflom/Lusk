@@ -1,0 +1,50 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Check for unstaged changes
+echo "Checking for unstaged changes..."
+if [ -n "$(git status --porcelain)" ]; then
+  echo "❌ ERROR: You have unstaged changes in your workspace."
+  echo ""
+  echo "⚠️  IMPORTANT: All dependencies of your commits must be included in the push."
+  echo "⚠️  Please stage and commit all related files before pushing."
+  echo "⚠️  This prevents deployment issues and ensures all tests pass with all changes."
+  echo ""
+  echo "Unstaged files:"
+  git status --porcelain
+  echo ""
+  echo "To proceed with the push despite this warning, use git push --no-verify"
+  exit 1
+fi
+
+echo "Running essential checks for push..."
+npm run typecheck && npm run lint && npm run format:check
+
+if [ $? -ne 0 ]; then
+  echo "❌ ERROR: Code quality checks failed. Fix issues before pushing."
+  exit 1
+fi
+
+echo "Running unit and integration tests..."
+npm run test
+
+if [ $? -ne 0 ]; then
+  echo "❌ ERROR: Tests failed. Fix test issues before pushing."
+  exit 1
+fi
+
+echo ""
+echo "GitHub Actions workflows will be validated on the remote server"
+echo "Skipping local workflow validation as it will be handled by GitHub"
+
+echo ""
+echo "Building app for GitHub Pages deployment validation..."
+npm run build
+
+if [ $? -ne 0 ]; then
+  echo "❌ ERROR: Build failed. Fix build issues before pushing."
+  exit 1
+fi
+
+echo ""
+echo "✅ All checks passed! Push can proceed."

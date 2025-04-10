@@ -1,0 +1,18 @@
+{
+  "development": {
+    "devcontainerFiles": [".devcontainer/codespaces.json"],
+    "defaultPort": 5173,
+    "preconfiguredRepo": "true",
+    "prebuilds": {
+      "enabled": true,
+      "master": true,
+      "branches": true,
+      "pullRequests": true,
+      "pullRequestAdmins": true,
+      "addCheck": true,
+      "addComment": true,
+      "addBadge": true,
+      "addLabel": true
+    }
+  }
+}

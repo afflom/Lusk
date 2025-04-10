@@ -1,0 +1,19 @@
+#!/bin/sh
+
+echo "Running essential checks before commit..."
+npm run lint && npm run typecheck && npm run test
+
+if [ $? -ne 0 ]; then
+  echo "❌ Linting, type checking, or unit tests failed. Please fix the issues before committing."
+  exit 1
+fi
+
+echo "Checking for implementation stubs and mock features in staged files..."
+git diff --staged | $(git rev-parse --show-toplevel)/scripts/ensure-claude-code.sh
+
+if [ $? -ne 0 ]; then
+  echo "❌ Claude detected potential stub implementations. Please review Claude's feedback before committing."
+  exit 1
+fi
+
+echo "Proceeding with commit..."

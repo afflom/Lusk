@@ -1,0 +1,16 @@
+{
+  "features": {
+    "codespaces-github-cli": {
+      "description": "GitHub CLI",
+      "version": "latest"
+    },
+    "codespaces-node": {
+      "description": "Node.js LTS",
+      "version": "lts"
+    },
+    "codespaces-chrome": {
+      "description": "Chrome browser for testing",
+      "version": "latest"
+    }
+  }
+}
