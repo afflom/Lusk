@@ -25,25 +25,30 @@ describe('Web Component Conformance Tests', () => {
       // Verify our components are properly registered
       expect(customElements.get('app-root')).toBeDefined();
       expect(customElements.get('app-counter')).toBeDefined();
+      expect(customElements.get('math-demo')).toBeDefined();
     });
 
     it('should use kebab-case for element names according to spec', () => {
       // Custom element names must contain a hyphen
       expect('app-root'.includes('-')).toBe(true);
       expect('app-counter'.includes('-')).toBe(true);
+      expect('math-demo'.includes('-')).toBe(true);
 
       // Should follow kebab-case naming convention
       expect('app-root').toMatch(/^[a-z]+-[a-z]+$/);
       expect('app-counter').toMatch(/^[a-z]+-[a-z]+$/);
+      expect('math-demo').toMatch(/^[a-z]+-[a-z]+$/);
     });
 
     it('should properly extend HTMLElement', () => {
       const AppClass = customElements.get('app-root');
       const CounterClass = customElements.get('app-counter');
+      const MathDemoClass = customElements.get('math-demo');
 
       // Verify proper inheritance
       expect(Object.getPrototypeOf(AppClass)).toBe(HTMLElement);
       expect(Object.getPrototypeOf(CounterClass)).toBe(HTMLElement);
+      expect(Object.getPrototypeOf(MathDemoClass)).toBe(HTMLElement);
     });
   });
 
@@ -297,7 +302,7 @@ describe('Web Component Conformance Tests', () => {
 
       // Get initial title text
       const initialTitle = app.shadowRoot?.querySelector('h1')?.textContent;
-      expect(initialTitle).toBe('TypeScript PWA Template');
+      expect(initialTitle).toBe('Prime Math Library Explorer');
 
       // Change title attribute
       app.setAttribute('title', 'New Title');

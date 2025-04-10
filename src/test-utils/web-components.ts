@@ -6,7 +6,7 @@
  */
 
 import { vi } from 'vitest';
-import { MockedCounterElement, MockedAppElement } from './types';
+import { MockedCounterElement, MockedAppElement, MockedMathDemoElement } from './types';
 import { appConfig } from '../utils/config';
 
 /**
@@ -121,9 +121,104 @@ export function createMockCounterElement(): MockedCounterElement {
 }
 
 /**
- * Helper function to create a properly mocked AppElement
- * @returns A fully mocked AppElement instance
+ * Helper function to create a properly mocked MathDemoElement
+ * @returns A fully mocked MathDemoElement instance
  */
+export function createMockMathDemoElement(): MockedMathDemoElement {
+  // Create the element
+  const mathDemo = document.createElement('math-demo');
+
+  // Add internal state properties
+  Object.defineProperty(mathDemo, 'inputValue', {
+    value: '',
+    writable: true,
+  });
+
+  Object.defineProperty(mathDemo, 'operation', {
+    value: 'factorize',
+    writable: true,
+  });
+
+  // Create a shadowRoot if it doesn't exist
+  if (!mathDemo.shadowRoot) {
+    Object.defineProperty(mathDemo, 'shadowRoot', {
+      value: new MockShadowRoot(),
+      writable: true,
+    });
+  }
+
+  // Create form elements
+  const form = document.createElement('div');
+  form.className = 'math-form';
+
+  // Create select
+  const select = document.createElement('select');
+  select.id = 'operation';
+
+  // Create input
+  const input = document.createElement('input');
+  input.id = 'number-input';
+  input.type = 'text';
+
+  // Create button
+  const button = document.createElement('button');
+  button.textContent = 'Calculate';
+
+  // Create result container
+  const resultContainer = document.createElement('div');
+  resultContainer.className = 'result-container';
+
+  const resultBox = document.createElement('div');
+  resultBox.id = 'result';
+  resultBox.className = 'result';
+  resultBox.textContent = '';
+
+  resultContainer.appendChild(resultBox);
+
+  // Add elements to form
+  form.appendChild(select);
+  form.appendChild(input);
+  form.appendChild(button);
+
+  // Add form and result container to shadow root
+  mathDemo.shadowRoot.appendChild(form);
+  mathDemo.shadowRoot.appendChild(resultContainer);
+
+  // Add methods
+  const calculate = vi.fn(() => {
+    const resultElement = mathDemo.shadowRoot?.getElementById('result');
+    if (resultElement && mathDemo.inputValue) {
+      resultElement.textContent = `Result for ${String(mathDemo.operation)} on ${String(mathDemo.inputValue)}`;
+    }
+  });
+
+  const connectedCallback = vi.fn(() => {
+    // No implementation needed for tests
+  });
+
+  const disconnectedCallback = vi.fn(() => {
+    // No implementation needed for tests
+  });
+
+  // Add methods to element
+  Object.defineProperty(mathDemo, 'calculate', {
+    value: calculate,
+    writable: true,
+  });
+
+  Object.defineProperty(mathDemo, 'connectedCallback', {
+    value: connectedCallback,
+    writable: true,
+  });
+
+  Object.defineProperty(mathDemo, 'disconnectedCallback', {
+    value: disconnectedCallback,
+    writable: true,
+  });
+
+  return mathDemo as unknown as MockedMathDemoElement;
+}
+
 export function createMockAppElement(): MockedAppElement {
   // Create the element
   const app = document.createElement('app-root');
@@ -155,19 +250,17 @@ export function createMockAppElement(): MockedAppElement {
 
       // Create title
       const titleElement = document.createElement('h1');
-      titleElement.textContent = title;
+      titleElement.textContent = title || 'Prime Math Library Explorer';
       app.shadowRoot.appendChild(titleElement);
 
-      // Create counter
-      const counter = createMockCounterElement();
-      counter.setAttribute('label', 'Counter');
-      counter.setAttribute('count', '0');
-      app.shadowRoot.appendChild(counter);
+      // Create math demo
+      const mathDemo = document.createElement('math-demo');
+      app.shadowRoot.appendChild(mathDemo);
 
-      // Create description
+      // Create a simple explanation paragraph
       const description = document.createElement('p');
       description.className = 'read-the-docs';
-      description.textContent = 'Click on the button to test the counter';
+      description.textContent = 'Try the math operations above';
       app.shadowRoot.appendChild(description);
     }
   });
@@ -200,7 +293,7 @@ export function createMockAppElement(): MockedAppElement {
   const attributeChangedCallback = vi.fn(
     (name: string, oldValue: string | null, newValue: string) => {
       if (name === 'title' && oldValue !== newValue) {
-        title = newValue || 'TypeScript PWA Template';
+        title = newValue || 'Prime Math Library Explorer';
         render();
       }
     }

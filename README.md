@@ -1,20 +1,19 @@
-# TypeScript PWA Template with GitHub Pages Deployment
+# Lusk - Universal Number Coordinates Calculator
 
 [![Open in GitHub Codespaces](https://img.shields.io/badge/Open%20in-GitHub%20Codespaces-blue?logo=github)](https://github.com/codespaces/new?hide_repo_select=true&ref=main)
 
-A fully-featured TypeScript PWA template that deploys to GitHub Pages using GitHub Actions. This template includes in-browser testing, PWA capabilities, TypeScript support, and is configured for development with DevContainers and GitHub Codespaces.
+A TypeScript Progressive Web Application that calculates universal number coordinates and provides various mathematical operations. Built with the @uor-foundation/math-js library, Lusk provides a user-friendly interface for advanced mathematical operations including prime factorization, primality checking, and universal coordinate calculation.
 
 ## Features
 
-- 🚀 TypeScript support
-- 📱 PWA ready with workbox
-- 🧪 In-browser testing with Vitest
-- 🔄 Automatic GitHub Pages deployment
-- 🎨 Basic styling and counter example
-- 🐳 DevContainer and GitHub Codespaces ready
+- 🧮 Universal number coordinate calculation 
+- 🧠 Advanced mathematical operations (prime factorization, primality testing)
+- 🔢 Support for various numeric formats and operations
+- 🚀 TypeScript implementation with strong typing
+- 📱 Progressive Web App with offline capability
+- 🧪 Comprehensive test suite with browser-based testing 
+- 🐳 DevContainer and GitHub Codespaces ready for easy development
 - 🤖 Claude Code integration for AI-assisted development
-- 🔧 Automated issue implementation by Claude AI
-- 🧪 Local GitHub Actions testing with Act
 
 ## Getting Started
 

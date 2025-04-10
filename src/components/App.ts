@@ -1,5 +1,7 @@
 // Import the Counter web component
 import './Counter';
+// Import MathDemo web component
+import './MathDemo';
 import * as logger from '../utils/logger';
 import { appConfig } from '../utils/config';
 
@@ -57,6 +59,13 @@ export class AppElement extends HTMLElement {
           padding-bottom: 0.5rem;
         }
         
+        h3 {
+          font-size: 1.4em;
+          color: #a5acff;
+          margin-top: 1.5rem;
+          margin-bottom: 0.8rem;
+        }
+        
         .intro {
           margin: 2rem 0;
           text-align: center;
@@ -100,14 +109,12 @@ export class AppElement extends HTMLElement {
           margin: 2rem 0;
         }
         
-        .capabilities-section ol {
-          text-align: left;
-          margin-left: 1rem;
-          line-height: 1.8;
-        }
-        
-        .capabilities-section li {
-          margin-bottom: 0.8rem;
+        .explanation {
+          margin: 1rem 0;
+          background-color: #2a2a2a;
+          padding: 1rem;
+          border-radius: 8px;
+          line-height: 1.6;
         }
         
         code {
@@ -116,6 +123,26 @@ export class AppElement extends HTMLElement {
           padding: 0.2em 0.4em;
           border-radius: 3px;
           font-size: 0.9em;
+        }
+        
+        pre {
+          background-color: #333;
+          padding: 1rem;
+          border-radius: 4px;
+          overflow-x: auto;
+          margin: 1rem 0;
+        }
+        
+        .code-block {
+          display: block;
+          margin: 1rem 0;
+          padding: 1rem;
+          background-color: #333;
+          border-radius: 8px;
+          overflow-x: auto;
+          font-family: 'Courier New', monospace;
+          font-size: 0.9em;
+          white-space: pre;
         }
         
         .footer {
@@ -139,6 +166,10 @@ export class AppElement extends HTMLElement {
           
           h2 {
             font-size: 1.5em;
+          }
+          
+          .code-block {
+            font-size: 0.8em;
           }
         }
       `;
@@ -198,11 +229,16 @@ export class AppElement extends HTMLElement {
   disconnectedCallback(): void {
     // Clean up any event listeners or resources
     try {
+      // Remove event listeners from any components we might have created
       if (this.shadowRoot) {
-        const counter = this.shadowRoot.querySelector('app-counter');
-        if (counter) {
-          counter.removeEventListener('counter-changed', () => {});
-          counter.removeEventListener('error', () => {});
+        const mathDemo = this.shadowRoot.querySelector('math-demo');
+        if (mathDemo) {
+          // Remove any potential listeners we might have added in the future
+          // Currently there are none, but this ensures we have proper cleanup
+          const mathDemoButtons = mathDemo.shadowRoot?.querySelectorAll('button');
+          mathDemoButtons?.forEach((button) => {
+            button.removeEventListener('click', () => {});
+          });
         }
       }
     } catch (error) {
@@ -278,30 +314,49 @@ export class AppElement extends HTMLElement {
 
       const introText = document.createElement('p');
       introText.innerHTML =
-        'A modern, lightweight <strong>TypeScript Progressive Web App template</strong> with Web Components and GitHub Pages deployment.';
+        'Explore the <strong>@uor-foundation/math-js</strong> library, a JavaScript implementation of the Prime Framework for universal number representation.';
       intro.appendChild(introText);
       container.appendChild(intro);
+
+      // What is the Prime Framework section
+      const whatIs = document.createElement('div');
+      const whatIsTitle = document.createElement('h2');
+      whatIsTitle.textContent = 'What is the Prime Framework?';
+      whatIs.appendChild(whatIsTitle);
+
+      const whatIsText = document.createElement('div');
+      whatIsText.className = 'explanation';
+      whatIsText.innerHTML = `
+        <p>The Prime Framework is a mathematical system that represents numbers through their prime factorization. Instead of representing numbers in a specific base (like decimal or binary), the Prime Framework uses the fundamental building blocks of integers: prime numbers.</p>
+        <p>This representation has several advantages:</p>
+        <ul>
+          <li>Numbers are stored in their unique canonical form</li>
+          <li>Arithmetic operations can be performed with exact precision</li>
+          <li>The representation is base-independent</li>
+          <li>It provides direct access to number-theoretic properties</li>
+        </ul>
+      `;
+      whatIs.appendChild(whatIsText);
+      container.appendChild(whatIs);
 
       // Features section
       const features = document.createElement('div');
       features.className = 'features-container';
 
       const featuresTitle = document.createElement('h2');
-      featuresTitle.textContent = 'Features';
+      featuresTitle.textContent = 'Core Features';
       features.appendChild(featuresTitle);
 
       const featuresList = document.createElement('ul');
       featuresList.className = 'features-list';
 
       const featureItems = [
-        'TypeScript with strict type checking',
-        'Custom Web Components without frameworks',
-        'Vite for fast development and optimized builds',
-        'Progressive Web App (PWA) support with offline capabilities',
-        'GitHub Pages deployment through GitHub Actions',
-        'Comprehensive testing with Vitest',
-        'Modern ESLint and Prettier configuration',
-        'DevContainer and GitHub Codespaces ready',
+        'Universal Number representation based on prime factorization',
+        'Comprehensive number theory operations (GCD, LCM, etc.)',
+        'Exact arithmetic with guaranteed precision',
+        'Base-independent number representation',
+        'Advanced functions like totient calculation, Möbius function',
+        'Prime number operations including primality testing',
       ];
 
       featureItems.forEach((item) => {
@@ -313,87 +368,107 @@ export class AppElement extends HTMLElement {
       features.appendChild(featuresList);
       container.appendChild(features);
 
-      // Example component with counter
+      // Code Example
+      const codeSection = document.createElement('div');
+      const codeTitle = document.createElement('h2');
+      codeTitle.textContent = 'Basic Usage Example';
+      codeSection.appendChild(codeTitle);
+
+      const codeBlock = document.createElement('pre');
+      codeBlock.className = 'code-block';
+      codeBlock.textContent = `
+// Import the library using ES modules
+import { UniversalNumber, numberTheory } from '@uor-foundation/math-js';
+
+// Create universal numbers
+const a = UniversalNumber.fromString("42");
+const b = UniversalNumber.fromString("123456789");
+
+// Perform arithmetic operations
+const sum = a.add(b);
+const product = a.multiply(b);
+
+// Get the prime factorization
+const coordinates = a.getCoordinates();
+console.log(coordinates.factorization); // Map of prime-exponent pairs
+
+// Check if a number is prime
+const isPrime = numberTheory.isPrime("123456789");
+
+// Get the factorization
+const factors = numberTheory.factorize("42");
+
+// Convert back to standard formats
+const bigIntValue = sum.toBigInt();
+const decimalString = product.toString();
+      `;
+      codeSection.appendChild(codeBlock);
+      container.appendChild(codeSection);
+
+      // Interactive Demo
       const demoSection = document.createElement('div');
       demoSection.className = 'demo-section';
 
       const demoTitle = document.createElement('h2');
-      demoTitle.textContent = 'Interactive Demo';
+      demoTitle.textContent = 'Interactive Math-JS Demo';
       demoSection.appendChild(demoTitle);
 
       const demoDescription = document.createElement('p');
-      demoDescription.textContent =
-        'This counter demonstrates the interactive functionality you can build with this template:';
+      demoDescription.textContent = 'Try out some of the Prime Math Library features:';
       demoSection.appendChild(demoDescription);
 
       try {
-        // Create a counter component - wrapped in try/catch to handle potential errors
-        const counter = document.createElement('app-counter');
-        counter.setAttribute('label', 'Counter');
-        counter.setAttribute('count', '0');
-
-        // Add an error handler to catch custom element connection errors
-        const errorHandler = (event: Event): void => {
-          logger.error(`Counter component error: ${event.type}`);
-        };
-        counter.addEventListener('error', errorHandler);
-
-        demoSection.appendChild(counter);
-      } catch (counterError) {
+        // Create a math demo component
+        const mathDemo = document.createElement('math-demo');
+        demoSection.appendChild(mathDemo);
+      } catch (error) {
         logger.error(
-          'Error creating counter component:',
-          counterError instanceof Error ? counterError : new Error(String(counterError))
+          'Error creating math demo component:',
+          error instanceof Error ? error : new Error(String(error))
         );
 
-        // Fallback to a plain button if the custom element fails
-        const fallbackButton = document.createElement('button');
-        fallbackButton.textContent = 'Counter (Component Failed)';
-        fallbackButton.style.padding = '8px 16px';
-        fallbackButton.style.background = '#646cff';
-        fallbackButton.style.color = 'white';
-        fallbackButton.style.border = 'none';
-        fallbackButton.style.borderRadius = '4px';
-
-        demoSection.appendChild(fallbackButton);
+        const errorMsg = document.createElement('p');
+        errorMsg.textContent = `Error creating math demo: ${error instanceof Error ? error.message : String(error)}`;
+        demoSection.appendChild(errorMsg);
       }
 
       container.appendChild(demoSection);
 
-      // Key Capabilities section
-      const capabilities = document.createElement('div');
-      capabilities.className = 'capabilities-section';
+      // Number Theory Section
+      const numberTheorySection = document.createElement('div');
+      const numberTheoryTitle = document.createElement('h2');
+      numberTheoryTitle.textContent = 'Number Theory Operations';
+      numberTheorySection.appendChild(numberTheoryTitle);
 
-      const capabilitiesTitle = document.createElement('h2');
-      capabilitiesTitle.textContent = 'Key Capabilities';
-      capabilities.appendChild(capabilitiesTitle);
-
-      const capabilitiesList = document.createElement('ol');
-
-      const capabilityItems = [
-        'Offline support with Service Worker caching',
-        'TypeScript for robust, type-safe code',
-        'Web Components for modular UI architecture',
-        'Fast builds and hot module replacement',
-        'Modern tooling with ESLint and Prettier',
-        'Comprehensive test infrastructure',
-        'Continuous integration and deployment',
-      ];
-
-      capabilityItems.forEach((item) => {
-        const li = document.createElement('li');
-        li.innerHTML = item;
-        capabilitiesList.appendChild(li);
-      });
-
-      capabilities.appendChild(capabilitiesList);
-      container.appendChild(capabilities);
+      const numberTheoryText = document.createElement('div');
+      numberTheoryText.className = 'explanation';
+      numberTheoryText.innerHTML = `
+        <h3>Prime Factorization</h3>
+        <p>Every integer greater than 1 can be expressed as a unique product of prime numbers. The Prime Framework uses this fundamental property to represent numbers.</p>
+        <p>For example, 60 = 2² × 3 × 5</p>
+        
+        <h3>Greatest Common Divisor (GCD)</h3>
+        <p>The GCD of two or more integers is the largest positive integer that divides each of them without a remainder.</p>
+        <p>The Prime Framework can efficiently calculate GCD by comparing prime factors.</p>
+        
+        <h3>Least Common Multiple (LCM)</h3>
+        <p>The LCM of two integers is the smallest positive integer that is divisible by both.</p>
+        <p>In the Prime Framework, LCM is calculated using the prime factorizations.</p>
+        
+        <h3>Totient Function</h3>
+        <p>Euler's totient function counts the positive integers up to a given integer n that are relatively prime to n.</p>
+        <p>In the Prime Framework, this is calculated directly from the prime factorization.</p>
+      `;
+      numberTheorySection.appendChild(numberTheoryText);
+      container.appendChild(numberTheorySection);
 
       // Create footer
       const footer = document.createElement('footer');
       footer.className = 'footer';
 
       const footerText = document.createElement('p');
-      footerText.innerHTML = 'Built with TypeScript Progressive Web App architecture';
+      footerText.innerHTML =
+        'Explore the power of the Prime Framework with @uor-foundation/math-js';
       footer.appendChild(footerText);
 
       container.appendChild(footer);

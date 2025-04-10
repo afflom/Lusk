@@ -77,7 +77,7 @@ export const appConfig = {
       return title.trim();
     }
     // Fallback for consistency with tests
-    return 'TypeScript PWA Template';
+    return 'Prime Math Library Explorer';
   })(),
   // Current environment
   environment: nodeEnv,

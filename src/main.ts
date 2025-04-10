@@ -1,6 +1,7 @@
 import './style.css';
 import { pwaService } from './services/pwa';
 import './components/Counter';
+// Import the App file which also defines the MathDemo component
 import { createApp } from './components/App';
 import { appConfig } from './utils/config';
 import * as logger from './utils/logger';

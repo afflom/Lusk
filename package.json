@@ -1,7 +1,7 @@
 {
-  "name": "typescript-pwa-template",
+  "name": "lusk",
   "version": "1.0.0",
-  "description": "A TypeScript PWA template with GitHub Pages deployment",
+  "description": "A TypeScript PWA with universal number coordinate calculation",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -37,6 +37,7 @@
     "claude-code": "bash scripts/ensure-claude-code.sh"
   },
   "dependencies": {
+    "@uor-foundation/math-js": "^0.1.1",
     "workbox-window": "^7.0.0"
   },
   "devDependencies": {
@@ -86,14 +87,14 @@
       "prettier --write"
     ]
   },
-  "author": "typescript-pwa-template contributors",
+  "author": "Afflom",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/afflom/apps.git"
+    "url": "git+https://github.com/afflom/Lusk.git"
   },
-  "homepage": "https://afflom.github.io/apps/",
+  "homepage": "https://afflom.github.io/Lusk/",
   "bugs": {
-    "url": "https://github.com/afflom/apps/issues"
+    "url": "https://github.com/afflom/Lusk/issues"
   },
   "license": "MIT"
 }

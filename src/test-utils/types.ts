@@ -16,6 +16,16 @@ export interface MockedCounterElement extends HTMLElement {
   shadowRoot: MockShadowRoot;
 }
 
+// Type for mocked MathDemoElement
+export interface MockedMathDemoElement extends HTMLElement {
+  calculate: Mock;
+  connectedCallback: Mock;
+  disconnectedCallback: Mock;
+  inputValue: string;
+  operation: string;
+  shadowRoot: MockShadowRoot;
+}
+
 // Type for mocked AppElement
 export interface MockedAppElement extends HTMLElement {
   render: Mock;
