@@ -13,6 +13,7 @@
   "include": [
     "wdio.conf.ts",
     "tests/integration/**/*.ts",
+    "tests/integration/**/*.d.ts",
     "tests/wdio.d.ts"
   ]
 }

@@ -4,7 +4,7 @@ import {
   waitForWebComponentsReady,
   isPwaRegistered,
   checkWebComponentsRenderingErrors,
-} from './helpers.ts';
+} from './helpers.js';
 
 describe('App Integration Tests', () => {
   // Array to collect console errors/warnings
@@ -329,7 +329,7 @@ describe('App Integration Tests', () => {
       // Let's try to get more info about the web component status
       const moreDetails = await browser.execute(() => {
         return {
-          appRootExists: !!document.querySelector('app-root'),
+          appRootExists: !!document.querySelector('app-shell'),
           counterExists: !!document.querySelector('app-counter'),
           appDivExists: !!document.getElementById('app'),
           body: document.body.innerHTML,
@@ -407,7 +407,7 @@ describe('App Integration Tests', () => {
     expect(errors.customElementErrors.length).toBe(0);
     expect(errors.appErrors?.length || 0).toBe(0);
 
-    // Special handling for web component status - in some tests we don't expect app-root to exist
+    // Special handling for web component status - in some tests we don't expect app-shell to exist
     // The test for "should verify PWA capabilities and properly handle errors" might run in an environment
     // where components aren't fully initialized
     if (webComponentStatus.hasErrors) {
@@ -424,8 +424,10 @@ describe('App Integration Tests', () => {
       // then we'll allow certain "errors" as they're expected in test environment
       const isPwaTest = this.currentTest?.title.includes('PWA capabilities');
       const isExpectedComponentState =
-        webComponentStatus.appRootStatus.includes('not found') ||
-        webComponentStatus.counterStatus.includes('No app-counter elements found');
+        (webComponentStatus.appShellStatus &&
+          webComponentStatus.appShellStatus.includes('not found')) ||
+        (webComponentStatus.appRootStatus &&
+          webComponentStatus.appRootStatus.includes('not found'));
 
       if (isPwaTest || isExpectedComponentState) {
         console.log('Accepting web component state as valid for this test');
@@ -465,12 +467,12 @@ describe('App Integration Tests', () => {
     // Verify that custom elements are defined, regardless of direct usage
     const customElementsStatus = await browser.execute(() => {
       return {
-        appRootDefined: customElements.get('app-root') !== undefined,
+        appShellDefined: customElements.get('app-shell') !== undefined,
         mathDemoDefined: customElements.get('math-demo') !== undefined,
       };
     });
 
-    expect(customElementsStatus.appRootDefined).toBe(true);
+    expect(customElementsStatus.appShellDefined).toBe(true);
     expect(customElementsStatus.mathDemoDefined).toBe(true);
 
     // Explicitly test for Node.js require syntax in the JavaScript bundle
@@ -525,7 +527,8 @@ describe('App Integration Tests', () => {
     });
 
     // Check if we found Node.js require syntax in any script
-    const scriptsWithRequire = jsBundle.filter((script) => script.hasRequireSyntax);
+    // Cast jsBundle to an array type for type checking
+    const scriptsWithRequire = (jsBundle as any[]).filter((script) => script.hasRequireSyntax);
 
     // Now that we've fixed the require issues with our ESM wrapper, we shouldn't find any Node.js require syntax
     // This test now verifies our fix is working correctly
@@ -542,10 +545,10 @@ describe('App Integration Tests', () => {
 
     // Look for our heading in the app container through possible shadow DOM
     const hasTitle = await browser.execute(() => {
-      // Check app-root first
-      const appRoot = document.querySelector('app-root');
-      if (appRoot && appRoot.shadowRoot) {
-        const h1 = appRoot.shadowRoot.querySelector('h1');
+      // Check app-shell first
+      const appShell = document.querySelector('app-shell');
+      if (appShell && appShell.shadowRoot) {
+        const h1 = appShell.shadowRoot.querySelector('h1');
         if (h1 && h1.textContent && h1.textContent.includes('Prime Math')) {
           return true;
         }
@@ -739,7 +742,7 @@ describe('App Integration Tests', () => {
         );
 
         // Check if app still rendered despite service worker errors
-        const appRendered = !!document.querySelector('app-root')?.shadowRoot?.childNodes.length;
+        const appRendered = !!document.querySelector('app-shell')?.shadowRoot?.childNodes.length;
 
         return {
           serviceWorkerErrors: swErrors,
@@ -878,13 +881,13 @@ describe('App Integration Tests', () => {
     // In our test environment, app-counter might not be present
     // So instead check that the app container itself is still interactive
     const appStillInteractive = await browser.execute(() => {
-      // Check if app-root exists and is rendering correctly
-      const appRoot = document.querySelector('app-root');
+      // Check if app-shell exists and is rendering correctly
+      const appRoot = document.querySelector('app-shell');
       if (appRoot && appRoot.shadowRoot && appRoot.shadowRoot.childNodes.length > 0) {
         return true;
       }
 
-      // If app-root doesn't exist (common in test environment), check that the page is still usable
+      // If app-shell doesn't exist (common in test environment), check that the page is still usable
       const appDiv = document.getElementById('app');
       const bodyContent = document.body.textContent || '';
 
@@ -994,23 +997,23 @@ describe('App Integration Tests', () => {
 
     // Get web component diagnostics
     const webComponentDiagnostic = await browser.execute(() => {
-      // Test app-root rendering
+      // Test app-shell rendering
       let appRootStatus = 'Not checked';
       try {
-        const appRoot = document.querySelector('app-root');
+        const appRoot = document.querySelector('app-shell');
         if (!appRoot) {
-          appRootStatus = 'app-root element not found';
+          appRootStatus = 'app-shell element not found';
         } else {
           const shadowRoot = appRoot.shadowRoot;
           if (!shadowRoot) {
-            appRootStatus = 'app-root shadowRoot not attached';
+            appRootStatus = 'app-shell shadowRoot not attached';
           } else {
             const hasContent = shadowRoot.childNodes.length > 0;
             appRootStatus = hasContent ? 'Rendered correctly' : 'Empty shadow DOM';
           }
         }
       } catch (error) {
-        appRootStatus = `Error checking app-root: ${error}`;
+        appRootStatus = `Error checking app-shell: ${error}`;
       }
 
       // Test math-demo rendering
@@ -1065,10 +1068,10 @@ describe('App Integration Tests', () => {
       let definitionStatus = 'Not checked';
       try {
         // Check if our custom elements are properly defined
-        const appRootDefined = customElements.get('app-root') !== undefined;
+        const appRootDefined = customElements.get('app-shell') !== undefined;
         const mathDemoDefined = customElements.get('math-demo') !== undefined;
 
-        definitionStatus = `Custom elements defined - app-root: ${appRootDefined}, math-demo: ${mathDemoDefined}`;
+        definitionStatus = `Custom elements defined - app-shell: ${appRootDefined}, math-demo: ${mathDemoDefined}`;
       } catch (error) {
         definitionStatus = `Error checking custom element definitions: ${error}`;
       }

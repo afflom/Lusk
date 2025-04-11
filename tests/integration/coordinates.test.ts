@@ -2,7 +2,7 @@
  * Integration tests for coordinates calculation functionality
  */
 import { expect } from '@wdio/globals';
-import { waitForWebComponentsReady } from './helpers.ts';
+import { waitForWebComponentsReady } from './helpers.js';
 
 describe('MathDemo Coordinates Calculation', () => {
   // Test cases with expected results
@@ -57,36 +57,36 @@ describe('MathDemo Coordinates Calculation', () => {
 
     // Wait for app to load
     await $('#app').waitForExist();
-    await $('app-root').waitForExist();
+    await $('app-shell').waitForExist();
     await waitForWebComponentsReady();
 
-    // Wait for math-demo component to be rendered within app-root's shadow DOM
+    // Wait for math-demo component to be rendered within app-shell's shadow DOM
     await browser.waitUntil(
       async () => {
         const exists = await browser.executeAsync((done) => {
-          const appRoot = document.querySelector('app-root');
-          if (!appRoot || !appRoot.shadowRoot) {
+          const appShell = document.querySelector('app-shell');
+          if (!appShell || !appShell.shadowRoot) {
             return done(false);
           }
-          const mathDemo = appRoot.shadowRoot.querySelector('math-demo');
+          const mathDemo = appShell.shadowRoot.querySelector('math-demo');
           done(!!mathDemo);
         });
         return exists;
       },
       {
         timeout: 5000,
-        timeoutMsg: 'math-demo component was not found within app-root shadow DOM after 5 seconds',
+        timeoutMsg: 'math-demo component was not found within app-shell shadow DOM after 5 seconds',
         interval: 100,
       }
     );
   });
 
   // Test that math demo component renders correctly
-  it('should render the math demo component inside app-root', async () => {
-    // Check if math-demo exists within app-root's shadow DOM
+  it('should render the math demo component inside app-shell', async () => {
+    // Check if math-demo exists within app-shell's shadow DOM
     const mathDemoExists = await browser.executeAsync((done) => {
-      const appRoot = document.querySelector('app-root');
-      const mathDemo = appRoot?.shadowRoot?.querySelector('math-demo');
+      const appShell = document.querySelector('app-shell');
+      const mathDemo = appShell?.shadowRoot?.querySelector('math-demo');
       done(!!mathDemo);
     });
 
@@ -94,8 +94,8 @@ describe('MathDemo Coordinates Calculation', () => {
 
     // Check if the form elements exist
     const formElementsExist = await browser.executeAsync((done) => {
-      const appRoot = document.querySelector('app-root');
-      const mathDemo = appRoot?.shadowRoot?.querySelector('math-demo');
+      const appShell = document.querySelector('app-shell');
+      const mathDemo = appShell?.shadowRoot?.querySelector('math-demo');
       if (!mathDemo || !mathDemo.shadowRoot) {
         return done(false);
       }
@@ -124,8 +124,8 @@ describe('MathDemo Coordinates Calculation', () => {
   it('should allow selecting different operations through the shadow DOM', async () => {
     // Select the isPrime operation
     await browser.executeAsync((done) => {
-      const appRoot = document.querySelector('app-root');
-      const mathDemo = appRoot?.shadowRoot?.querySelector('math-demo');
+      const appShell = document.querySelector('app-shell');
+      const mathDemo = appShell?.shadowRoot?.querySelector('math-demo');
       if (!mathDemo || !mathDemo.shadowRoot) {
         return done(false);
       }
@@ -142,8 +142,8 @@ describe('MathDemo Coordinates Calculation', () => {
 
     // Verify the operation was set
     const operationValue = await browser.executeAsync((done) => {
-      const appRoot = document.querySelector('app-root');
-      const mathDemo = appRoot?.shadowRoot?.querySelector('math-demo');
+      const appShell = document.querySelector('app-shell');
+      const mathDemo = appShell?.shadowRoot?.querySelector('math-demo');
       if (!mathDemo || !mathDemo.shadowRoot) {
         return done(null);
       }
@@ -161,8 +161,8 @@ describe('MathDemo Coordinates Calculation', () => {
       // Execute calculation in the browser context
       const result = await browser.executeAsync((testInput, done) => {
         // Get the math demo component
-        const appRoot = document.querySelector('app-root');
-        const mathDemo = appRoot?.shadowRoot?.querySelector('math-demo');
+        const appShell = document.querySelector('app-shell');
+        const mathDemo = appShell?.shadowRoot?.querySelector('math-demo');
         if (!mathDemo || !mathDemo.shadowRoot) {
           return done({ success: false, error: 'Component not found' });
         }
@@ -205,17 +205,20 @@ describe('MathDemo Coordinates Calculation', () => {
         }
       }, input);
 
+      // Cast result to our known type for type checking
+      const typedResult = result as CoordinatesResult;
+
       // Verify the result
-      expect(result.success).toBe(true);
-      expect(result.result).toBeDefined();
+      expect(typedResult.success).toBe(true);
+      expect(typedResult.result).toBeDefined();
 
       // Verify coordinates structure
-      expect(result.result).toHaveProperty('factorization');
-      expect(result.result).toHaveProperty('isNegative');
-      expect(result.result.isNegative).toBe(expected.isNegative);
+      expect(typedResult.result).toHaveProperty('factorization');
+      expect(typedResult.result).toHaveProperty('isNegative');
+      expect(typedResult.result.isNegative).toBe(expected.isNegative);
 
       // Sort factorization arrays for consistent comparison
-      const sortedActual = [...result.result.factorization].sort((a, b) => a[0] - b[0]);
+      const sortedActual = [...typedResult.result.factorization].sort((a, b) => a[0] - b[0]);
       const sortedExpected = [...expected.factorization].sort((a, b) => a[0] - b[0]);
 
       // Compare factorization data

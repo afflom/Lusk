@@ -1,8 +1,8 @@
 import './style.css';
 import { pwaService } from './services/pwa';
 import './components/Counter';
-// Import the App file which also defines the MathDemo component
-import { createApp } from './components/App';
+// Import the AppShell component which manages our PWA structure
+import './components/AppShell';
 import { appConfig } from './utils/config';
 import * as logger from './utils/logger';
 
@@ -213,10 +213,18 @@ class AppInitializer {
         });
       }
 
-      // Create and initialize the app
-      const app = createApp(appConfig.rootSelector);
-      logger.info('App initialization successful');
-      return app;
+      // Create app shell component
+      const appShell = document.createElement('app-shell');
+      const rootElement = document.querySelector(appConfig.rootSelector);
+
+      if (!rootElement) {
+        throw new Error(`Root element not found: ${appConfig.rootSelector}`);
+      }
+
+      // Append app shell to root element
+      rootElement.appendChild(appShell);
+      logger.info('App Shell initialization successful');
+      return appShell;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.error('Failed to initialize app components: ' + errorMsg);

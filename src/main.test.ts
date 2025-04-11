@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createApp } from './components/App';
+// Import was removed, using direct element creation
 
 // Mock the logger module before importing the main module
 vi.mock('./utils/logger', () => ({
@@ -43,9 +43,12 @@ vi.mock('./components/Counter', () => ({
   createCounter: vi.fn(),
 }));
 
-// Mock App component
-vi.mock('./components/App', () => ({
-  createApp: vi.fn().mockReturnValue({ setAttribute: vi.fn() }),
+// Mock AppShell component
+vi.mock('./components/AppShell', () => ({
+  AppShellElement: class MockAppShell extends HTMLElement {
+    connectedCallback(): void {}
+    setAttribute(): void {}
+  },
 }));
 
 // Import after mocking
@@ -110,7 +113,8 @@ describe('Main application entry', () => {
     expect(logger.warn).toHaveBeenCalled();
 
     // App should still be created despite PWA error
-    expect(createApp).toHaveBeenCalledWith('#app');
+    // In the new implementation, we directly create an app-shell element
+    expect(document.querySelector('#app')?.children.length).toBeGreaterThan(0);
   });
 
   it('should initialize app components', async () => {
@@ -127,7 +131,7 @@ describe('Main application entry', () => {
     const appInit = new AppInitializer();
     await appInit.initialize();
 
-    // App should be created
-    expect(createApp).toHaveBeenCalledWith('#app');
+    // AppShell component should be created
+    expect(document.querySelector('#app')?.children.length).toBeGreaterThan(0);
   });
 });

@@ -56,7 +56,7 @@ export const config: Options.Testrunner = {
     },
   },
   specs: ['./tests/integration/**/*.ts'],
-  exclude: [],
+  exclude: ['./tests/integration/**/*.d.ts'],
   maxInstances: 1,
   capabilities: [
     {
@@ -167,7 +167,7 @@ export const config: Options.Testrunner = {
     // Save test info for debugging if needed
     fs.appendFileSync(
       'logs/test-results.log',
-      `${new Date().toISOString()} - ${test.parent} - ${test.title}: ${test.passed ? 'PASSED' : 'FAILED'}\n`
+      `${new Date().toISOString()} - ${test.parent} - ${test.title}: ${(test as any).passed ? 'PASSED' : 'FAILED'}\n`
     );
   },
 };

@@ -139,27 +139,33 @@ export async function waitForWebComponentsReady(timeout = 5000) {
   await browser
     .waitUntil(
       async () => {
-        // Check if both app-root and app-counter are defined and rendered
+        // Check if app-shell and math-demo are defined and rendered
         const componentsStatus = await browser.execute(() => {
           // Check custom elements registry
-          const appRootDefined = customElements.get('app-root') !== undefined;
+          const appShellDefined = customElements.get('app-shell') !== undefined;
+          const mathDemoDefined = customElements.get('math-demo') !== undefined;
           const counterDefined = customElements.get('app-counter') !== undefined;
 
           // Check for instances in the DOM
-          const appRoot = document.querySelector('app-root');
-          const appCounter = document.querySelector('app-counter');
+          const appShell = document.querySelector('app-shell');
+          const mathDemo = document.querySelector('math-demo');
 
           // Check shadows for content
-          const appRootReady =
-            appRoot && appRoot.shadowRoot && appRoot.shadowRoot.childNodes.length > 0;
-          const counterReady =
-            !appCounter ||
-            (appCounter && appCounter.shadowRoot && appCounter.shadowRoot.childNodes.length > 0);
+          const appShellReady =
+            appShell && appShell.shadowRoot && appShell.shadowRoot.childNodes.length > 0;
+          const mathDemoReady =
+            !mathDemo ||
+            (mathDemo && mathDemo.shadowRoot && mathDemo.shadowRoot.childNodes.length > 0);
 
           return {
-            defined: appRootDefined && counterDefined,
-            rendered: appRootReady && counterReady,
-            ready: appRootDefined && counterDefined && appRootReady && counterReady,
+            defined: appShellDefined && mathDemoDefined && counterDefined,
+            rendered: appShellReady && mathDemoReady,
+            ready:
+              appShellDefined &&
+              mathDemoDefined &&
+              counterDefined &&
+              appShellReady &&
+              mathDemoReady,
           };
         });
 
@@ -211,63 +217,75 @@ export function expectNoConsoleErrors() {
  */
 export async function checkWebComponentsRenderingErrors() {
   return browser.execute(() => {
-    // Check app-root rendering
-    let appRootStatus = 'Not checked';
+    // Check app-shell rendering
+    let appShellStatus = 'Not checked';
+    let appRootStatus = 'Not checked'; // Legacy app-root check
     try {
+      const appShell = document.querySelector('app-shell');
+      if (!appShell) {
+        appShellStatus = 'app-shell element not found';
+      } else {
+        const shadowRoot = appShell.shadowRoot;
+        if (!shadowRoot) {
+          appShellStatus = 'app-shell shadowRoot not attached';
+        } else {
+          const hasContent = shadowRoot.childNodes.length > 0;
+          appShellStatus = hasContent ? 'Rendered correctly' : 'Empty shadow DOM';
+        }
+      }
+
+      // Also check for app-root for backward compatibility
       const appRoot = document.querySelector('app-root');
       if (!appRoot) {
         appRootStatus = 'app-root element not found';
-      } else {
-        const shadowRoot = appRoot.shadowRoot;
-        if (!shadowRoot) {
-          appRootStatus = 'app-root shadowRoot not attached';
-        } else {
-          const hasContent = shadowRoot.childNodes.length > 0;
-          appRootStatus = hasContent ? 'Rendered correctly' : 'Empty shadow DOM';
-        }
       }
     } catch (error) {
-      appRootStatus = `Error checking app-root: ${error}`;
+      appShellStatus = `Error checking app-shell: ${error}`;
     }
 
-    // Check app-counter rendering
-    let counterStatus = 'Not checked';
+    // Check math-demo rendering
+    let mathDemoStatus = 'Not checked';
     try {
-      const counters = document.querySelectorAll('app-counter');
-      if (counters.length === 0) {
-        counterStatus = 'No app-counter elements found';
+      const mathDemos = document.querySelectorAll('math-demo');
+      if (mathDemos.length === 0) {
+        mathDemoStatus = 'No math-demo elements found';
       } else {
         const failures = [];
-        counters.forEach((counter, index) => {
-          const shadowRoot = counter.shadowRoot;
+        mathDemos.forEach((mathDemo, index) => {
+          const shadowRoot = mathDemo.shadowRoot;
           if (!shadowRoot) {
-            failures.push(`Counter ${index}: shadowRoot not attached`);
+            failures.push(`MathDemo ${index}: shadowRoot not attached`);
           } else {
+            const form = shadowRoot.querySelector('.math-form');
+            if (!form) {
+              failures.push(`MathDemo ${index}: form not found in shadowRoot`);
+            }
             const button = shadowRoot.querySelector('button');
             if (!button) {
-              failures.push(`Counter ${index}: button not found in shadowRoot`);
+              failures.push(`MathDemo ${index}: button not found in shadowRoot`);
             }
           }
         });
 
-        counterStatus =
-          failures.length === 0 ? 'All counters rendered correctly' : failures.join('; ');
+        mathDemoStatus =
+          failures.length === 0 ? 'All math demos rendered correctly' : failures.join('; ');
       }
     } catch (error) {
-      counterStatus = `Error checking app-counter: ${error}`;
+      mathDemoStatus = `Error checking math-demo: ${error}`;
     }
 
-    // In the test environment, we should consider it normal to have no counter
-    // since it's only rendered inside app-root's shadow DOM and our test setup
+    // In the test environment, we should consider it normal to have no math-demo
+    // since it's only rendered inside app-shell's shadow DOM and our test setup
     // might not have properly initialized the component
     const hasErrors =
-      appRootStatus !== 'Rendered correctly' ||
-      (counterStatus !== 'No app-counter elements found' &&
-        !counterStatus.includes('rendered correctly'));
+      appShellStatus !== 'Rendered correctly' ||
+      (mathDemoStatus !== 'No math-demo elements found' &&
+        !mathDemoStatus.includes('rendered correctly'));
 
     return {
+      appShellStatus,
       appRootStatus,
-      counterStatus,
+      mathDemoStatus,
       hasErrors,
     };
   });

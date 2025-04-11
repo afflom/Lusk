@@ -1,5 +1,5 @@
 import { expect } from '@wdio/globals';
-import { waitForPageLoad, checkWebComponentsRenderingErrors } from './helpers.ts';
+import { waitForPageLoad, checkWebComponentsRenderingErrors } from './helpers.js';
 
 describe('Console Error/Warning Tests', () => {
   beforeEach(async () => {
