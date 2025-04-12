@@ -10,87 +10,522 @@ import path from 'path';
 
 const sw_template = `/**
  * Service Worker for TypeScript PWA Template
- * This implements basic caching strategies for offline support
+ * This implements advanced caching strategies for offline support
  */
 
-// Cache name with version
-const CACHE_NAME = '${swConfig.cacheName}';
+// Cache names for different resource types
+const CACHE_NAMES = {
+  static: '${swConfig.cacheNames.static}',
+  dynamic: '${swConfig.cacheNames.dynamic}',
+  documents: '${swConfig.cacheNames.documents}',
+  images: '${swConfig.cacheNames.images}',
+  fonts: '${swConfig.cacheNames.fonts}',
+  offline: '${swConfig.cacheNames.offline}'
+};
 
 // Resources to pre-cache
 const PRECACHE_URLS = ${JSON.stringify(swConfig.precacheUrls, null, 2)};
 
+// Offline fallback pages
+const OFFLINE_FALLBACKS = {
+  document: '${swConfig.offlineFallbacks.document}',
+  image: '${swConfig.offlineFallbacks.image}'
+};
+
+// Maximum age for cached items
+const MAX_CACHE_AGE = ${swConfig.maxCacheAge};
+
+// Cache size limit
+const CACHE_LIMIT_BYTES = ${swConfig.cacheLimitBytes};
+
+// Background sync queue name
+const SYNC_QUEUE_NAME = '${swConfig.syncQueueName}';
+
+/**
+ * Determine appropriate cache for a request
+ * @param {Request} request The fetch request
+ * @returns {string} The cache name to use
+ */
+function getCacheNameForRequest(request) {
+  const url = new URL(request.url);
+  
+  // Static assets (JS, CSS)
+  if (url.pathname.match(/\\.(js|css)$/)) {
+    return CACHE_NAMES.static;
+  }
+  
+  // Font files
+  if (url.pathname.match(/\\.(woff2?|ttf|otf|eot)$/)) {
+    return CACHE_NAMES.fonts;
+  }
+  
+  // Image files
+  if (url.pathname.match(/\\.(jpe?g|png|gif|svg|webp|ico)$/)) {
+    return CACHE_NAMES.images;
+  }
+  
+  // HTML documents
+  if (request.mode === 'navigate' || 
+      url.pathname.endsWith('/') || 
+      url.pathname.endsWith('.html') ||
+      (request.headers.get('Accept') && 
+       request.headers.get('Accept').includes('text/html'))) {
+    return CACHE_NAMES.documents;
+  }
+  
+  // Default to dynamic cache
+  return CACHE_NAMES.dynamic;
+}
+
+/**
+ * Apply cache-first strategy
+ * Good for static resources that rarely change
+ */
+async function cacheFirst(request) {
+  const cache = await caches.open(getCacheNameForRequest(request));
+  const cachedResponse = await cache.match(request);
+  
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+  
+  try {
+    const networkResponse = await fetch(request);
+    
+    // Only cache successful responses
+    if (networkResponse.ok) {
+      // Clone response before caching
+      cache.put(request, networkResponse.clone());
+    }
+    
+    return networkResponse;
+  } catch (error) {
+    // If both cache and network fail, return offline fallback
+    return getOfflineFallback(request);
+  }
+}
+
+/**
+ * Apply network-first strategy
+ * Good for frequently updated content
+ */
+async function networkFirst(request) {
+  try {
+    // Try network first
+    const networkResponse = await fetch(request);
+    
+    // Only cache successful responses
+    if (networkResponse.ok) {
+      const cache = await caches.open(getCacheNameForRequest(request));
+      cache.put(request, networkResponse.clone());
+    }
+    
+    return networkResponse;
+  } catch (error) {
+    // Network failed, try cache
+    const cache = await caches.open(getCacheNameForRequest(request));
+    const cachedResponse = await cache.match(request);
+    
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+    
+    // Both failed, return offline fallback
+    return getOfflineFallback(request);
+  }
+}
+
+/**
+ * Apply stale-while-revalidate strategy
+ * Returns cached version immediately, then updates cache
+ */
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(getCacheNameForRequest(request));
+  const cachedResponse = await cache.match(request);
+  
+  // Update cache in the background regardless of cache hit
+  const fetchPromise = fetch(request)
+    .then(networkResponse => {
+      if (networkResponse.ok) {
+        cache.put(request, networkResponse.clone());
+      }
+      return networkResponse;
+    })
+    .catch(() => {
+      // If network fails but we already have cached response, 
+      // just silently fail the update
+      return null;
+    });
+  
+  // Return cached immediately if available, otherwise wait for network
+  return cachedResponse || fetchPromise;
+}
+
+/**
+ * Get appropriate offline fallback for request
+ */
+async function getOfflineFallback(request) {
+  const cache = await caches.open(CACHE_NAMES.offline);
+  
+  // For navigation requests, return the offline HTML page
+  if (request.mode === 'navigate' || 
+      (request.headers.get('Accept') && 
+       request.headers.get('Accept').includes('text/html'))) {
+    return cache.match(OFFLINE_FALLBACKS.document);
+  }
+  
+  // For image requests, return offline image
+  if (request.url.match(/\\.(jpe?g|png|gif|svg|webp|ico)$/)) {
+    return cache.match(OFFLINE_FALLBACKS.image);
+  }
+  
+  // For other requests, return a simple text response
+  return new Response('Offline: Resource unavailable', {
+    status: 503,
+    statusText: 'Service Unavailable',
+    headers: new Headers({
+      'Content-Type': 'text/plain',
+    }),
+  });
+}
+
+/**
+ * Queue form submission for later processing when offline
+ */
+async function queueFormSubmission(request) {
+  try {
+    // Clone request as it can only be read once
+    const requestClone = request.clone();
+    let formData;
+    
+    try {
+      // Try to parse as JSON first
+      formData = await requestClone.json();
+    } catch (err) {
+      // If not JSON, try to parse as form data
+      formData = Object.fromEntries(await requestClone.formData());
+    }
+    
+    // Get existing queue from localStorage
+    let queue = [];
+    const storedQueue = localStorage.getItem(SYNC_QUEUE_NAME);
+    
+    if (storedQueue) {
+      queue = JSON.parse(storedQueue);
+    }
+    
+    // Add to queue
+    queue.push({
+      url: request.url,
+      method: request.method,
+      body: formData,
+      timestamp: Date.now(),
+      id: Date.now() + '-' + Math.random().toString(36).substr(2, 9)
+    });
+    
+    // Save queue
+    localStorage.setItem(SYNC_QUEUE_NAME, JSON.stringify(queue));
+    
+    // Register background sync if supported
+    if ('sync' in self.registration) {
+      await self.registration.sync.register('form-sync');
+    }
+    
+    // Return success response
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Your request has been saved and will be submitted when you are online.',
+      offline: true
+    }), {
+      status: 202, // Accepted
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    console.error('Error queuing form submission:', error);
+    
+    // Return error response
+    return new Response(JSON.stringify({
+      success: false,
+      message: 'Failed to save your request for offline use.',
+      error: error.message
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * Clean up old caches and manage cache storage
+ */
+async function cleanupCaches() {
+  // Get all cache names
+  const cacheNames = await caches.keys();
+  
+  // Delete old caches that are not in our current config
+  const validCacheNames = Object.values(CACHE_NAMES);
+  
+  const deletionPromises = cacheNames
+    .filter(name => !validCacheNames.includes(name))
+    .map(name => caches.delete(name));
+  
+  await Promise.all(deletionPromises);
+  
+  // For dynamic caches, clean up expired entries
+  const dynamicCaches = [
+    CACHE_NAMES.dynamic,
+    CACHE_NAMES.documents
+  ];
+  
+  for (const cacheName of dynamicCaches) {
+    const cache = await caches.open(cacheName);
+    const requests = await cache.keys();
+    
+    // Don't delete too many at once to avoid performance issues
+    if (requests.length > 100) {
+      // Delete oldest entries
+      // Sort would be ideal but we don't have timestamps in this simple implementation
+      // We'll delete the first 20% of entries
+      const deleteCount = Math.floor(requests.length * 0.2);
+      
+      for (let i = 0; i < deleteCount; i++) {
+        await cache.delete(requests[i]);
+      }
+    }
+  }
+}
+
 // Install event - precache static resources
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(PRECACHE_URLS))
-      .then(() => self.skipWaiting())
+    Promise.all([
+      // Pre-cache static resources
+      caches.open(CACHE_NAMES.static)
+        .then(cache => cache.addAll(PRECACHE_URLS)),
+      
+      // Pre-cache offline fallbacks
+      caches.open(CACHE_NAMES.offline)
+        .then(cache => cache.addAll([
+          OFFLINE_FALLBACKS.document,
+          OFFLINE_FALLBACKS.image
+        ]))
+    ])
+    .then(() => self.skipWaiting())
   );
 });
 
 // Activate event - clean up old caches
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.filter(cacheName => {
-          return cacheName !== CACHE_NAME;
-        }).map(cacheName => {
-          return caches.delete(cacheName);
-        })
-      );
-    }).then(() => self.clients.claim())
+    cleanupCaches()
+      .then(() => self.clients.claim())
   );
 });
 
-// Fetch event - serve from cache or network
+// Fetch event - apply different strategies based on request type
 self.addEventListener('fetch', event => {
+  // Handle offline form submissions
+  if ((event.request.method === 'POST' || event.request.method === 'PUT') 
+      && !navigator.onLine) {
+    event.respondWith(queueFormSubmission(event.request));
+    return;
+  }
+  
   // Skip non-GET requests
-  if (event.request.method !== 'GET') return;
+  if (event.request.method !== 'GET') {
+    return;
+  }
   
   // Skip cross-origin requests
-  if (!event.request.url.startsWith(self.location.origin)) return;
-
-  event.respondWith(
-    caches.match(event.request)
-      .then(cachedResponse => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        
-        return fetch(event.request).then(response => {
-          // Don't cache non-successful responses
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-          
-          // Clone the response as it can only be consumed once
-          const responseToCache = response.clone();
-          
-          caches.open(CACHE_NAME)
-            .then(cache => {
-              cache.put(event.request, responseToCache);
-            });
-            
-          return response;
-        });
-      })
-      .catch(() => {
-        // Return a fallback for navigation requests
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
-        
-        return null;
-      })
-  );
+  if (!event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+  
+  // URL object for path checking
+  const url = new URL(event.request.url);
+  
+  // Apply appropriate strategy based on request type
+  if (
+    // Static assets - use cache first
+    url.pathname.match(/\\.(js|css|woff2?|ttf|otf|eot)$/) ||
+    PRECACHE_URLS.includes(url.pathname)
+  ) {
+    event.respondWith(cacheFirst(event.request));
+  } 
+  else if (
+    // Images - use stale-while-revalidate
+    url.pathname.match(/\\.(jpe?g|png|gif|svg|webp|ico)$/)
+  ) {
+    event.respondWith(staleWhileRevalidate(event.request));
+  }
+  else if (
+    // HTML pages - use network first
+    event.request.mode === 'navigate' ||
+    url.pathname.endsWith('/') ||
+    url.pathname.endsWith('.html')
+  ) {
+    event.respondWith(networkFirst(event.request));
+  }
+  else {
+    // Other requests (API, etc.) - use network first
+    event.respondWith(networkFirst(event.request));
+  }
 });
 
-// Handle service worker updates
+// Message event - handle various commands from the client
 self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
+  if (!event.data || !event.data.type) {
+    return;
   }
+  
+  switch (event.data.type) {
+    case 'SKIP_WAITING':
+      self.skipWaiting();
+      break;
+      
+    case 'CLAIM_CLIENTS':
+      self.clients.claim();
+      break;
+      
+    case 'UPDATE_CACHES':
+      // Re-fetch and update cache for static resources
+      caches.open(CACHE_NAMES.static)
+        .then(cache => {
+          return cache.addAll(PRECACHE_URLS);
+        })
+        .then(() => {
+          // Notify client
+          if (event.source) {
+            event.source.postMessage({
+              type: 'CACHE_UPDATED'
+            });
+          }
+        });
+      break;
+      
+    case 'CLEAR_CACHES':
+      // Clear all caches except offline fallbacks
+      Promise.all(
+        Object.entries(CACHE_NAMES)
+          .filter(([key]) => key !== 'offline')
+          .map(([, name]) => caches.delete(name))
+      ).then(() => {
+        // Reinitialize static cache
+        return caches.open(CACHE_NAMES.static)
+          .then(cache => cache.addAll(PRECACHE_URLS));
+      }).then(() => {
+        // Notify client
+        if (event.source) {
+          event.source.postMessage({
+            type: 'CACHES_CLEARED'
+          });
+        }
+      });
+      break;
+  }
+});
+
+// Background sync event - process queued form submissions
+self.addEventListener('sync', event => {
+  if (event.tag === 'form-sync') {
+    event.waitUntil(processSyncQueue());
+  }
+});
+
+// Process sync queue
+async function processSyncQueue() {
+  const storedQueue = localStorage.getItem(SYNC_QUEUE_NAME);
+  if (!storedQueue) return;
+  
+  const queue = JSON.parse(storedQueue);
+  if (queue.length === 0) return;
+  
+  const successfulIds = [];
+  
+  // Process each item
+  await Promise.all(queue.map(async (item) => {
+    try {
+      const response = await fetch(item.url, {
+        method: item.method,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(item.body)
+      });
+      
+      if (response.ok) {
+        successfulIds.push(item.id);
+      }
+    } catch (error) {
+      console.error('Failed to process queued submission:', error);
+    }
+  }));
+  
+  // Remove successful items
+  if (successfulIds.length > 0) {
+    const newQueue = queue.filter(item => !successfulIds.includes(item.id));
+    localStorage.setItem(SYNC_QUEUE_NAME, JSON.stringify(newQueue));
+    
+    // Notify clients
+    const clients = await self.clients.matchAll();
+    clients.forEach(client => {
+      client.postMessage({
+        type: 'SYNC_COMPLETED',
+        processed: successfulIds.length
+      });
+    });
+  }
+}
+
+// Handle push notifications
+self.addEventListener('push', event => {
+  if (!event.data) return;
+  
+  try {
+    const data = event.data.json();
+    
+    const title = data.title || 'New Update';
+    const options = {
+      body: data.body || 'There is new information available.',
+      icon: data.icon || '/pwa-192x192.png',
+      badge: data.badge || '/pwa-192x192.png',
+      data: data.data || {}
+    };
+    
+    event.waitUntil(
+      self.registration.showNotification(title, options)
+    );
+  } catch (error) {
+    console.error('Push notification error:', error);
+  }
+});
+
+// Handle notification clicks
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  
+  const urlToOpen = event.notification.data?.url || '/';
+  
+  event.waitUntil(
+    clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
+    })
+    .then(windowClients => {
+      // Check if there is already a window/tab open with the target URL
+      const matchingClient = windowClients.find(client => 
+        client.url === urlToOpen || client.url.endsWith(urlToOpen)
+      );
+      
+      // If so, focus it
+      if (matchingClient) {
+        return matchingClient.focus();
+      }
+      
+      // If not, open a new window
+      return clients.openWindow(urlToOpen);
+    })
+  );
 });
 `;
 
@@ -104,7 +539,7 @@ export function generateServiceWorker(outputPath: string): void {
   if (require.main === module) {
     // Using process.stdout instead of console.log for build output
     process.stdout.write(
-      `Service worker generated at ${outputPath}/sw.js with cache name ${swConfig.cacheName}\n`
+      `Service worker generated at ${outputPath}/sw.js with advanced caching strategies\n`
     );
   }
 }

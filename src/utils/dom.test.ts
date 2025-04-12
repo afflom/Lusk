@@ -1,11 +1,24 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { createElement, appendElement, getOrCreateElement } from './dom';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { createElement, appendElement, getOrCreateElement, createNotification } from './dom';
 
 // Run a simplified version of the DOM tests to test our testing framework
 describe('DOM Utilities', () => {
   // Clear DOM after each test
   afterEach(() => {
     document.body.innerHTML = '';
+
+    // Remove notification container if exists
+    const notificationContainer = document.getElementById('notification-container');
+    if (notificationContainer) {
+      notificationContainer.remove();
+    }
+
+    // Remove any styles added
+    document.querySelectorAll('style').forEach((style) => {
+      if (style.textContent?.includes('notification-container')) {
+        style.remove();
+      }
+    });
   });
 
   describe('createElement', () => {
@@ -103,6 +116,82 @@ describe('DOM Utilities', () => {
 
       expect(result.id).toBe('new');
       expect(document.body.contains(result)).toBe(true);
+    });
+  });
+
+  describe('createNotification', () => {
+    it('should create a notification with the specified message', () => {
+      const notification = createNotification('Test message');
+
+      const container = document.getElementById('notification-container');
+      expect(container).not.toBeNull();
+      expect(notification.querySelector('.notification-message')?.innerHTML).toBe('Test message');
+    });
+
+    it('should create a notification with the specified type', () => {
+      const notification = createNotification('Success message', { type: 'success' });
+      expect(notification.classList.contains('success')).toBe(true);
+
+      const errorNotification = createNotification('Error message', { type: 'error' });
+      expect(errorNotification.classList.contains('error')).toBe(true);
+    });
+
+    it('should create a notification with custom ID', () => {
+      const notification = createNotification('Test message', { id: 'custom-notification' });
+      expect(notification.id).toBe('custom-notification');
+    });
+
+    it('should auto-close notification after specified time', () => {
+      vi.useFakeTimers();
+
+      const notification = createNotification('Test message', { closeAfterMs: 1000 });
+      expect(document.getElementById(notification.id)).not.toBeNull();
+
+      vi.advanceTimersByTime(1100);
+
+      // Give time for the animation event to fire
+      document.getElementById(notification.id)?.dispatchEvent(new Event('animationend'));
+
+      expect(document.getElementById(notification.id)).toBeNull();
+
+      vi.useRealTimers();
+    });
+
+    it('should not auto-close when autoClose is false', () => {
+      vi.useFakeTimers();
+
+      const notification = createNotification('Test message', {
+        autoClose: false,
+        closeAfterMs: 1000,
+      });
+
+      vi.advanceTimersByTime(2000);
+      expect(document.getElementById(notification.id)).not.toBeNull();
+
+      vi.useRealTimers();
+    });
+
+    it('should close when the close button is clicked', () => {
+      const notification = createNotification('Test message', { autoClose: false });
+      const closeButton = notification.querySelector('.notification-close') as HTMLElement;
+
+      // Simulate click
+      closeButton.click();
+
+      // To test removal that happens after animation, trigger animationend event
+      notification.dispatchEvent(new Event('animationend'));
+
+      expect(document.getElementById(notification.id)).toBeNull();
+    });
+
+    it('should support HTML content in the message', () => {
+      const htmlMessage = 'Message with <strong>bold</strong> text and <a href="#">link</a>';
+      const notification = createNotification(htmlMessage);
+
+      const messageEl = notification.querySelector('.notification-message') as HTMLElement;
+      expect(messageEl.innerHTML).toBe(htmlMessage);
+      expect(messageEl.querySelector('strong')).not.toBeNull();
+      expect(messageEl.querySelector('a')).not.toBeNull();
     });
   });
 });

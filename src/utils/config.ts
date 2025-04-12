@@ -47,8 +47,15 @@ export const swConfig = {
   url: './sw.js',
   // Default scope for the service worker
   scope: './',
-  // Cache name with version
-  cacheName: `ts-pwa-cache-v${packageVersion}`,
+  // Cache names with version for different strategies
+  cacheNames: {
+    static: `ts-pwa-static-v${packageVersion}`,
+    dynamic: `ts-pwa-dynamic-v${packageVersion}`,
+    documents: `ts-pwa-documents-v${packageVersion}`,
+    images: `ts-pwa-images-v${packageVersion}`,
+    fonts: `ts-pwa-fonts-v${packageVersion}`,
+    offline: `ts-pwa-offline-v${packageVersion}`,
+  },
   // Resources to pre-cache - use relative paths for GitHub Pages compatibility
   precacheUrls: [
     './',
@@ -59,6 +66,17 @@ export const swConfig = {
     './pwa-192x192.png',
     './pwa-512x512.png',
   ],
+  // Maximum age for cache items in milliseconds (7 days)
+  maxCacheAge: 7 * 24 * 60 * 60 * 1000,
+  // Offline fallback pages
+  offlineFallbacks: {
+    document: './offline.html',
+    image: './offline-image.png',
+  },
+  // Cache quota limit (approximate, in bytes)
+  cacheLimitBytes: 50 * 1024 * 1024, // 50MB
+  // Background sync queue name
+  syncQueueName: 'ts-pwa-sync-queue',
 };
 
 /**
