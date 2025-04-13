@@ -138,14 +138,17 @@ describe('PWAService', () => {
         eventListeners[event] = handler as (ev: Event) => void;
       });
 
-      // Set up localStorage with a mock queue
+      // Create a timestamp for more realistic testing
+      const testTimestamp = Date.now();
+
+      // Set up localStorage with a mock queue using config-based name
       const mockQueue = JSON.stringify([
         {
-          id: '123',
-          url: '/api/test',
+          id: `test-${testTimestamp}`,
+          url: '/api/form-endpoint',
           method: 'POST',
-          body: { test: true },
-          timestamp: Date.now(),
+          body: { formField: 'testValue', userId: 42 },
+          timestamp: testTimestamp,
         },
       ]);
       mockLocalStorage['ts-pwa-sync-queue'] = mockQueue;
@@ -436,14 +439,15 @@ describe('PWAService', () => {
     });
 
     it('should attempt to process queued forms when online', async () => {
-      // Create mock form data
+      // Create mock form data with dynamic values
+      const testTimestamp = Date.now();
       const mockQueue = JSON.stringify([
         {
-          id: '123',
-          url: '/api/test',
+          id: `form-${testTimestamp}`,
+          url: '/api/data-submission',
           method: 'POST',
-          body: { test: true },
-          timestamp: Date.now(),
+          body: { fieldName: 'value', timestamp: testTimestamp },
+          timestamp: testTimestamp,
         },
       ]);
 
@@ -546,6 +550,198 @@ describe('PWAService', () => {
       const result = await pwaService.clearCache();
 
       expect(result).toBe(false);
+    });
+  });
+
+  describe('Network status handling', () => {
+    beforeEach(() => {
+      // Reset PWA service and register it to set up event listeners
+      pwaService = new PWAService();
+      return pwaService.register();
+    });
+
+    it('should show online notification when connected', () => {
+      // Directly call the network status notification method
+      pwaService['showNetworkStatusNotification']('online');
+
+      // Verify notification content
+      expect(mockCreateNotification).toHaveBeenCalledWith(
+        expect.stringContaining('You are back online'),
+        expect.objectContaining({ type: 'success' })
+      );
+    });
+
+    it('should show offline notification when disconnected', () => {
+      // Directly call the network status notification method
+      pwaService['showNetworkStatusNotification']('offline');
+
+      // Verify notification content
+      expect(mockCreateNotification).toHaveBeenCalledWith(
+        expect.stringContaining('You are currently offline'),
+        expect.objectContaining({ type: 'warning' })
+      );
+    });
+
+    it('should handle offline form functionality', () => {
+      // Mock navigating offline
+      Object.defineProperty(global.navigator, 'onLine', {
+        configurable: true,
+        value: false,
+      });
+
+      // Verify that isOffline() works correctly
+      expect(pwaService.isOffline()).toBe(true);
+
+      // Switch back to online
+      Object.defineProperty(global.navigator, 'onLine', {
+        configurable: true,
+        value: true,
+      });
+
+      // Verify online status
+      expect(pwaService.isOffline()).toBe(false);
+    });
+  });
+
+  describe('Offline user indicators', () => {
+    beforeEach(() => {
+      // Reset DOM
+      document.body.innerHTML = '';
+      // Create new PWA service instance
+      pwaService = new PWAService();
+      // Reset mockWorkbox
+      mockWorkbox.addEventListener.mockClear();
+      // Register service worker to set up handlers
+      return pwaService.register();
+    });
+
+    it('should show offline capability notification', () => {
+      // Reset notification mock
+      mockCreateNotification.mockClear();
+
+      // Directly call the method
+      pwaService['showOfflineCapabilityNotification']();
+
+      // Verify offline capability notification
+      expect(mockCreateNotification).toHaveBeenCalledWith(
+        expect.stringContaining('This app can now work offline'),
+        expect.objectContaining({ type: 'info' })
+      );
+    });
+
+    it('should show queue notification when form is saved offline', async () => {
+      // Mock navigator to be offline
+      Object.defineProperty(global.navigator, 'onLine', {
+        configurable: true,
+        value: false,
+      });
+
+      // Reset notification mock
+      mockCreateNotification.mockClear();
+
+      // Queue a form
+      await pwaService.queueFormSubmission('/api/offline-test', 'POST', { data: 'test' });
+
+      // Verify notification about queued form
+      expect(mockCreateNotification).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "Your form has been saved and will be submitted when you're back online"
+        ),
+        expect.objectContaining({ type: 'info' })
+      );
+    });
+
+    it('should show error notification for service worker errors', () => {
+      // Reset notification mock
+      mockCreateNotification.mockClear();
+
+      // Directly call error notification method
+      pwaService['showErrorNotification']('Test service worker error');
+
+      // Verify error notification
+      expect(mockCreateNotification).toHaveBeenCalledWith(
+        expect.stringContaining('Service worker error: Test service worker error'),
+        expect.objectContaining({ type: 'error' })
+      );
+    });
+
+    it('should show notification with proper parameters', () => {
+      // Setup DOM for notification testing
+      document.body.innerHTML = '';
+
+      // Reset notification mock
+      mockCreateNotification.mockClear();
+
+      // Call showNotification method directly
+      pwaService['showNotification']('Test notification', 'info', 5000);
+
+      // Verify notification was created with correct parameters
+      expect(mockCreateNotification).toHaveBeenCalledWith(
+        'Test notification',
+        expect.objectContaining({
+          id: expect.any(String),
+          type: 'info',
+          autoClose: true,
+          closeAfterMs: 5000,
+        })
+      );
+    });
+
+    it('should handle clearTimeout when showing a new notification', () => {
+      // Mock window.clearTimeout
+      const originalClearTimeout = window.clearTimeout;
+      const mockClearTimeout = vi.fn();
+      window.clearTimeout = mockClearTimeout;
+
+      try {
+        // Set a fake timeout ID
+        pwaService['notificationTimeout'] = 12345 as any;
+
+        // Call showNotification method
+        pwaService['showNotification']('New notification', 'info');
+
+        // Verify clearTimeout was called with the previous timeout ID
+        expect(mockClearTimeout).toHaveBeenCalledWith(12345);
+      } finally {
+        // Restore original clearTimeout
+        window.clearTimeout = originalClearTimeout;
+      }
+    });
+  });
+
+  describe('Math library offline support', () => {
+    beforeEach(() => {
+      // Reset PWA service
+      pwaService = new PWAService();
+      // Reset mockWorkbox
+      mockWorkbox.addEventListener.mockClear();
+      mockWorkbox.messageSW.mockClear();
+    });
+
+    it('should cache resources when online', async () => {
+      // Set navigator.onLine to true
+      Object.defineProperty(global.navigator, 'onLine', {
+        configurable: true,
+        value: true,
+      });
+
+      // Create a fresh PWA service
+      pwaService = new PWAService();
+
+      // Register the service worker
+      await pwaService.register();
+
+      // Verify that an update cache message was sent
+      expect(mockWorkbox.messageSW).toHaveBeenCalledWith({ type: 'UPDATE_CACHES' });
+
+      // Reset the mock to test manual updating
+      mockWorkbox.messageSW.mockClear();
+
+      // Call updateCachedResources method directly
+      pwaService.updateCachedResources();
+
+      // Should have sent another update message
+      expect(mockWorkbox.messageSW).toHaveBeenCalledWith({ type: 'UPDATE_CACHES' });
     });
   });
 });
