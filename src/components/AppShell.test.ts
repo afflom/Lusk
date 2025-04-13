@@ -1,6 +1,12 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach, beforeAll } from 'vitest';
 import './AppShell';
 import { AppShellElement } from './AppShell';
+
+// Mock window.scrollTo since it's not implemented in JSDOM
+beforeAll(() => {
+  // Add global mocks for window methods used in the component
+  window.scrollTo = vi.fn();
+});
 
 describe('AppShell Component', () => {
   let rootElement: HTMLDivElement;

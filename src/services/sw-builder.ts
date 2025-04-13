@@ -283,13 +283,35 @@ async function cleanupCaches() {
     
     // Don't delete too many at once to avoid performance issues
     if (requests.length > 100) {
-      // Delete oldest entries
-      // Sort would be ideal but we don't have timestamps in this simple implementation
-      // We'll delete the first 20% of entries
-      const deleteCount = Math.floor(requests.length * 0.2);
+      // Delete oldest entries based on the cache cleanup configuration
+      const CACHE_CLEANUP_PERCENTAGE = swConfig.cacheLimits.cleanupPercentage || 0.2;
       
-      for (let i = 0; i < deleteCount; i++) {
-        await cache.delete(requests[i]);
+      try {
+        // Get cache keys with their timestamps if available
+        const timestampedRequests = [];
+        for (const request of requests) {
+          // Attempt to get metadata for timestamps if available
+          const response = await cache.match(request);
+          const timestamp = response?.headers?.get('x-cached-at') || 0;
+          timestampedRequests.push({ request, timestamp: Number(timestamp) });
+        }
+        
+        // Sort by timestamp (oldest first)
+        timestampedRequests.sort((a, b) => a.timestamp - b.timestamp);
+        
+        // Calculate how many to delete
+        const deleteCount = Math.floor(requests.length * CACHE_CLEANUP_PERCENTAGE);
+        
+        // Delete oldest entries
+        for (let i = 0; i < deleteCount; i++) {
+          await cache.delete(timestampedRequests[i].request);
+        }
+      } catch (error) {
+        // Fallback to simple implementation if there's an error with timestamps
+        const deleteCount = Math.floor(requests.length * CACHE_CLEANUP_PERCENTAGE);
+        for (let i = 0; i < deleteCount; i++) {
+          await cache.delete(requests[i]);
+        }
       }
     }
   }
@@ -534,12 +556,25 @@ self.addEventListener('notificationclick', event => {
  * This is called by the build process
  */
 export function generateServiceWorker(outputPath: string): void {
-  fs.writeFileSync(path.join(outputPath, 'sw.js'), sw_template);
-  // Log only during build, not imported
-  if (require.main === module) {
-    // Using process.stdout instead of console.log for build output
-    process.stdout.write(
-      `Service worker generated at ${outputPath}/sw.js with advanced caching strategies\n`
+  if (!outputPath) {
+    console.error('Output path is required');
+    return;
+  }
+
+  try {
+    fs.writeFileSync(path.join(outputPath, 'sw.js'), sw_template);
+
+    // Log only during build, not imported
+    if (require.main === module) {
+      // Using process.stdout instead of console.log for build output
+      process.stdout.write(
+        `Service worker generated at ${outputPath}/sw.js with advanced caching strategies\n`
+      );
+    }
+  } catch (error) {
+    // Handle file system errors gracefully
+    console.error(
+      `Error generating service worker: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }

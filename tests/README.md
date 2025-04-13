@@ -2,6 +2,27 @@
 
 This directory contains browser-based integration tests for the application using WebdriverIO.
 
+## Code Coverage Requirements
+
+This project enforces strict code coverage requirements:
+
+- **Minimum threshold**: 90% coverage across all metrics (statements, branches, functions, and lines)
+- **Validation**: The GitHub Pages publishing workflow will fail if coverage requirements are not met
+- **Testing metrics**: Coverage is measured during unit tests and verified in validation scripts
+
+Run coverage checks locally with:
+
+```bash
+# Run coverage checks (will fail if coverage is below 90%)
+npm run test:coverage:check
+
+# Generate coverage report without failing on low coverage
+npm run test:coverage
+
+# Check if existing coverage report meets requirements
+npm run check:coverage
+```
+
 ## Git Hooks
 
 This project uses Git hooks to ensure code quality:
