@@ -5,12 +5,47 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png', 'offline-image.png'],
       manifest: {
-        name: 'TypeScript PWA Template',
-        short_name: 'TS-PWA',
-        description: 'A TypeScript PWA template with GitHub Pages deployment',
-        theme_color: '#ffffff',
+        name: 'Universal Number Coordinates Calculator',
+        short_name: 'Math Calc',
+        description:
+          'Advanced mathematical application with universal coordinate calculations and offline capabilities',
+        theme_color: '#1a73e8',
+        background_color: '#ffffff',
+        display: 'standalone',
+        orientation: 'any',
+        lang: 'en',
+        dir: 'ltr',
+        start_url: './?source=pwa',
+        scope: './',
+        categories: ['education', 'utilities', 'productivity'],
+        shortcuts: [
+          {
+            name: 'Calculator',
+            short_name: 'Calc',
+            description: 'Open the calculator page',
+            url: './calculator?source=shortcut',
+            icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }],
+          },
+        ],
+        iarc_rating_id: '', // Can be populated if app gets a content rating
+        screenshots: [
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            label: 'Calculator Interface',
+            platform: 'wide',
+          },
+          {
+            src: 'pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            label: 'Home Screen',
+            platform: 'wide',
+          },
+        ],
         icons: [
           {
             src: 'pwa-192x192.png',
@@ -29,6 +64,38 @@ export default defineConfig({
             purpose: 'any maskable',
           },
         ],
+        related_applications: [],
+        prefer_related_applications: false,
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+        ],
+      },
+      // Add iOS meta tags for better Apple device integration
+      apple: {
+        icon: 'apple-touch-icon.png',
+        statusBarStyle: 'black-translucent',
+      },
+      // Configuration for generated service worker
+      injectRegister: 'auto',
+      devOptions: {
+        enabled: true,
+        type: 'module',
       },
     }),
   ],

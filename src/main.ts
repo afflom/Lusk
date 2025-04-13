@@ -3,8 +3,12 @@ import { pwaService } from './services/pwa';
 import './components/Counter';
 // Import the AppShell component which manages our PWA structure
 import './components/AppShell';
+// Import PWA-specific components
+import './components/PWAInstallPrompt';
+import './components/PWASplashScreen';
 import { appConfig } from './utils/config';
 import * as logger from './utils/logger';
+import { trackInstallEvent, InstallEvent } from './utils/pwa-analytics';
 
 // Define custom error tracking interface
 interface AppError {
@@ -213,13 +217,24 @@ class AppInitializer {
         });
       }
 
-      // Create app shell component
-      const appShell = document.createElement('app-shell');
       const rootElement = document.querySelector(appConfig.rootSelector);
-
       if (!rootElement) {
         throw new Error(`Root element not found: ${appConfig.rootSelector}`);
       }
+
+      // Add splash screen first (will show while app loads)
+      const splashScreen = document.createElement('pwa-splash-screen');
+      document.body.appendChild(splashScreen);
+
+      // Add PWA install prompt (invisible until needed)
+      const installPrompt = document.createElement('pwa-install-prompt');
+      document.body.appendChild(installPrompt);
+
+      // Set up app installation event tracking
+      this.setupInstallEvents();
+
+      // Create app shell component
+      const appShell = document.createElement('app-shell');
 
       // Append app shell to root element
       rootElement.appendChild(appShell);
@@ -230,6 +245,26 @@ class AppInitializer {
       logger.error('Failed to initialize app components: ' + errorMsg);
       this.showErrorFallback(error);
       return null;
+    }
+  }
+
+  /**
+   * Set up PWA installation event tracking
+   */
+  private setupInstallEvents(): void {
+    try {
+      // Track beforeinstallprompt event
+      window.addEventListener('beforeinstallprompt', (_event) => {
+        trackInstallEvent(InstallEvent.PROMPT_SHOWN);
+      });
+
+      // Track successful installation
+      window.addEventListener('appinstalled', () => {
+        trackInstallEvent(InstallEvent.INSTALLED);
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('Error setting up install events: ' + errorMsg);
     }
   }
 

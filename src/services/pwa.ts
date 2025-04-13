@@ -477,14 +477,11 @@ export class PWAService {
    */
   isInstalled(): boolean {
     try {
-      // Interface for window with optional standalone property
-      interface NavigatorWithStandalone extends Navigator {
-        standalone?: boolean;
-      }
+      // iOS devices have a 'standalone' property on navigator
 
       return (
         window.matchMedia('(display-mode: standalone)').matches ||
-        (window.navigator as NavigatorWithStandalone).standalone === true
+        (window.navigator as { standalone?: boolean }).standalone === true
       );
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);

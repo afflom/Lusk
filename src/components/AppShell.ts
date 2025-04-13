@@ -5,9 +5,13 @@
 import { THEME } from '../utils/constants';
 import * as logger from '../utils/logger';
 import { routerService, Route } from '../services/router';
+import { pwaService } from '../services/pwa';
+import { initPWAAnalytics, trackUsageEvent, UsageEvent } from '../utils/pwa-analytics';
 import './Navigation';
 import { NavigationElement } from './Navigation';
 import './MathDemo';
+import './PWAInstallPrompt';
+import './PWASplashScreen';
 
 // Import all pages
 import '../pages/HomePage';
@@ -128,6 +132,9 @@ export class AppShellElement extends HTMLElement {
       if (!this._initialized) {
         this.render();
         this._initialized = true;
+
+        // Initialize PWA features
+        this.initializePWA();
       }
     } catch (error) {
       logger.error(
@@ -142,6 +149,55 @@ export class AppShellElement extends HTMLElement {
           bubbles: true,
           composed: true,
         })
+      );
+    }
+  }
+
+  /**
+   * Initialize PWA features
+   */
+  private initializePWA(): void {
+    try {
+      // Register service worker for PWA
+      pwaService
+        .register()
+        .then(() => {
+          logger.info('PWA service worker registered successfully');
+        })
+        .catch((error) => {
+          logger.warn('PWA service worker registration failed:', error);
+        });
+
+      // Initialize PWA analytics
+      initPWAAnalytics();
+
+      // Signal that the app is ready (to hide splash screen)
+      this.signalAppReady();
+    } catch (error) {
+      logger.error(
+        'Error initializing PWA features:',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
+  }
+
+  /**
+   * Signal that the app is ready (to hide splash screen)
+   */
+  private signalAppReady(): void {
+    try {
+      // Small delay to allow critical resources to load
+      setTimeout(() => {
+        // Dispatch app-ready event
+        window.dispatchEvent(new Event('app-ready'));
+
+        // Track app ready event
+        trackUsageEvent(UsageEvent.APP_LAUNCHED);
+      }, 500);
+    } catch (error) {
+      logger.error(
+        'Error signaling app ready:',
+        error instanceof Error ? error : new Error(String(error))
       );
     }
   }
