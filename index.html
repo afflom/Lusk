@@ -3,14 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Universal number coordinate calculator and mathematical operations" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta name="description" content="Universal number coordinate calculator with advanced mathematical operations and offline capabilities" />
+    <meta name="theme-color" content="#1a73e8" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Universal Number Coordinates Calculator" />
+    <meta name="application-name" content="Math Calc" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="msapplication-TileColor" content="#1a73e8" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    
+    <!-- iOS splash screen images -->
+    <link rel="apple-touch-startup-image" href="/apple-touch-icon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
-    <title>Lusk - Universal Number Calculator</title>
+    <link rel="mask-icon" href="/apple-touch-icon.png" color="#1a73e8" />
+    
+    <title>Universal Number Coordinates Calculator</title>
   </head>
   <body>
     <div id="app"></div>
+    <noscript>
+      <div style="padding: 20px; text-align: center; font-family: sans-serif;">
+        <h1>JavaScript Required</h1>
+        <p>This application requires JavaScript to run. Please enable JavaScript in your browser settings.</p>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
