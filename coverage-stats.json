@@ -1,0 +1,56 @@
+{
+  "files": {
+    "src/services/sw-builder.ts": {
+      "statements": {
+        "total": 38,
+        "covered": 35,
+        "skipped": 0,
+        "pct": 92.11
+      },
+      "branches": {
+        "total": 8,
+        "covered": 7,
+        "skipped": 0,
+        "pct": 87.50
+      },
+      "functions": {
+        "total": 2,
+        "covered": 2,
+        "skipped": 0,
+        "pct": 100
+      },
+      "lines": {
+        "total": 38,
+        "covered": 35,
+        "skipped": 0,
+        "pct": 92.11
+      }
+    }
+  },
+  "total": {
+    "statements": {
+      "total": 2465,
+      "covered": 2098,
+      "skipped": 0,
+      "pct": 85.11
+    },
+    "branches": {
+      "total": 584,
+      "covered": 446,
+      "skipped": 0,
+      "pct": 76.37
+    },
+    "functions": {
+      "total": 524,
+      "covered": 480,
+      "skipped": 0,
+      "pct": 91.60
+    },
+    "lines": {
+      "total": 2444,
+      "covered": 2078,
+      "skipped": 0,
+      "pct": 85.03
+    }
+  }
+}

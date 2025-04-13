@@ -162,21 +162,27 @@ export class MathDemoElement extends HTMLElement {
 
       if (this.operation === 'factorize') {
         // Get the prime factorization
-        const factorization = numberTheory.factorize(this.inputValue);
-        result = Array.from(factorization.entries())
-          .map(([prime, exp]) => `${prime}${exp > 1n ? `^${exp}` : ''}`)
+        // Using type assertions to handle the any types from the math library
+        const factorization = numberTheory?.factorize(this.inputValue) as Map<bigint, bigint>;
+        result = Array.from(factorization.entries() as IterableIterator<[bigint, bigint]>)
+          .map((entry) => {
+            const [prime, exp] = entry;
+            return `${prime}${exp > 1n ? `^${exp}` : ''}`;
+          })
           .join(' × ');
       } else if (this.operation === 'isPrime') {
         // Check if the number is prime
-        result = numberTheory.isPrime(this.inputValue)
-          ? 'Yes, this is a prime number'
-          : 'No, this is not a prime number';
+        const isPrime = numberTheory?.isPrime(this.inputValue) as boolean;
+        result = isPrime ? 'Yes, this is a prime number' : 'No, this is not a prime number';
       } else if (this.operation === 'coordinates') {
         // Use the utility function to get serializable coordinates
         const serializable = getSerializableCoordinates(this.inputValue);
         result = JSON.stringify(serializable);
       } else if (this.operation === 'nextPrime') {
-        result = numberTheory.nextPrime(this.inputValue).toString();
+        // nextPrime returns a UniversalNumber instance, not a bigint
+        const nextPrime = numberTheory?.nextPrime(this.inputValue);
+        // Use toString method to convert to string representation
+        result = nextPrime?.toString() || '';
       } else if (this.operation === 'gcd' || this.operation === 'lcm') {
         // Handle operations that require two numbers
         const numbers = this.inputValue.split(',').map((num) => num.trim());
@@ -185,9 +191,13 @@ export class MathDemoElement extends HTMLElement {
           result = 'Please enter two numbers separated by a comma';
         } else {
           if (this.operation === 'gcd') {
-            result = numberTheory.gcd(numbers[0], numbers[1]).toString();
+            // gcd returns a UniversalNumber instance
+            const gcdResult = numberTheory?.gcd(numbers[0], numbers[1]);
+            result = gcdResult?.toString() || '';
           } else {
-            result = numberTheory.lcm(numbers[0], numbers[1]).toString();
+            // lcm returns a UniversalNumber instance
+            const lcmResult = numberTheory?.lcm(numbers[0], numbers[1]);
+            result = lcmResult?.toString() || '';
           }
         }
       } else if (this.operation === 'mobius') {
@@ -197,7 +207,7 @@ export class MathDemoElement extends HTMLElement {
         } else {
           try {
             // Get the factorization
-            const factorization = numberTheory.factorize(this.inputValue);
+            const factorization = numberTheory?.factorize(this.inputValue) as Map<bigint, bigint>;
 
             // Implementation of the Möbius function based on prime factorization
             // μ(n) = 0 if n has a squared prime factor
@@ -209,13 +219,16 @@ export class MathDemoElement extends HTMLElement {
               result = '1 (by definition: μ(1) = 1)';
             }
             // Check if any prime factor has exponent > 1
-            else if (Array.from(factorization.values()).some((exp) => exp > 1n)) {
+            else if (
+              Array.from(factorization.values() as IterableIterator<bigint>).some((exp) => exp > 1n)
+            ) {
               result = '0 (number has a squared prime factor)';
             }
             // If square-free, determine sign based on number of prime factors
             else {
+              const size = factorization.size as number;
               result =
-                factorization.size % 2 === 0
+                size % 2 === 0
                   ? '1 (square-free with even number of prime factors)'
                   : '-1 (square-free with odd number of prime factors)';
             }

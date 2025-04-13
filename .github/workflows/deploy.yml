@@ -74,7 +74,24 @@ jobs:
           
           # Run unit tests with coverage, explicitly exclude node_modules
           # We need to exclude node_modules tests from running since they contain tests that fail in CI
+          
+          # First run with coverage generation but without enforcing thresholds
           npx vitest run --exclude '**/node_modules/**' --coverage
+          
+          # Output current coverage metrics using our script
+          node scripts/check-coverage.js || true
+          
+          # Check if we're in the production environment (main branch) or if ENFORCE_COVERAGE is set
+          # Only enforce coverage requirements for production deployments or when explicitly requested
+          if [[ "${{ github.ref }}" == "refs/heads/main" || "$ENFORCE_COVERAGE" == "true" ]]; then
+            echo "Checking coverage thresholds (70% statements, 50% branches, 85% functions, 70% lines)..."
+            
+            # Use the coverage check script and fail the build if coverage is insufficient
+            node scripts/check-coverage.js
+          else
+            echo "⚠️ Coverage enforcement skipped for non-production environment."
+            echo "Coverage thresholds will be enforced for production deployments."
+          fi
           
           # Run integration tests
           # Use test:e2e which will properly build the production app and start the preview server

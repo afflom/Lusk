@@ -75,6 +75,11 @@ export const swConfig = {
   },
   // Cache quota limit (approximate, in bytes)
   cacheLimitBytes: 50 * 1024 * 1024, // 50MB
+  // Cache cleanup configuration
+  cacheLimits: {
+    cleanupPercentage: 0.2, // Remove oldest 20% when cleanup is triggered
+    maxEntries: 100, // Maximum number of entries before cleanup
+  },
   // Background sync queue name
   syncQueueName: 'ts-pwa-sync-queue',
 };

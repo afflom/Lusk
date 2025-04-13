@@ -243,10 +243,33 @@ global.mockWebComponent = function (name) {
       }
     }
 
-    connectedCallback() {}
-    disconnectedCallback() {}
-    adoptedCallback() {}
-    attributeChangedCallback() {}
+    // Called when element is inserted into the DOM
+    connectedCallback() {
+      // Dispatch a custom event that tests can listen for
+      this.dispatchEvent(new CustomEvent('component-connected'));
+    }
+    
+    // Called when element is removed from the DOM
+    disconnectedCallback() {
+      // Clean up any resources or event listeners
+      this.dispatchEvent(new CustomEvent('component-disconnected'));
+    }
+    
+    // Called when element is moved to a new document
+    adoptedCallback() {
+      // Update internal state when moved between documents
+      this.dispatchEvent(new CustomEvent('component-adopted'));
+    }
+    
+    // Called when observed attributes change
+    attributeChangedCallback(name, oldValue, newValue) {
+      // Update internal state based on attribute changes
+      this.dispatchEvent(
+        new CustomEvent('attribute-changed', { 
+          detail: { name, oldValue, newValue } 
+        })
+      );
+    }
   }
 
   try {

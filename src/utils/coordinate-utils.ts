@@ -40,13 +40,14 @@ export function getSerializableCoordinates(numString: string): SerializableCoord
     const coordinates = num.getCoordinates();
 
     // Convert factorization to array for proper serialization
-    const factorizationArray = Array.from(coordinates.factorization.entries()).map(
-      ([prime, exp]) => [Number(prime), Number(exp)] as [number, number]
-    );
+    const factorizationArray = Array.from(coordinates.factorization.entries()).map((entry) => {
+      const [prime, exp] = entry as [bigint, bigint];
+      return [Number(prime), Number(exp)] as [number, number];
+    });
 
     // Create serializable object
     return {
-      factorization: factorizationArray,
+      factorization: factorizationArray as [number, number][],
       isNegative: coordinates.isNegative,
     };
   } catch (error) {

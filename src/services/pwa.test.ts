@@ -100,6 +100,30 @@ describe('PWAService', () => {
       expect(mockWorkbox.messageSW).toHaveBeenCalledWith({ type: 'UPDATE_CACHES' });
     });
 
+    it('should handle event listener setup errors', async () => {
+      // Make addEventListener throw an error
+      mockWorkbox.addEventListener.mockImplementationOnce(() => {
+        throw new Error('Event listener error');
+      });
+
+      // Should still complete registration
+      await pwaService.register();
+
+      // First call should have failed but registration should continue
+      expect(mockWorkbox.register).toHaveBeenCalled();
+    });
+
+    it('should handle messageSW errors', async () => {
+      // Make messageSW reject
+      mockWorkbox.messageSW.mockRejectedValueOnce(new Error('MessageSW error'));
+
+      // Should still complete registration without throwing
+      await pwaService.register();
+
+      // Registration should still succeed
+      expect(mockWorkbox.register).toHaveBeenCalled();
+    });
+
     it('should reject if service worker is not supported', async () => {
       // Remove serviceWorker from navigator
       delete (global.navigator as any).serviceWorker;
@@ -294,6 +318,47 @@ describe('PWAService', () => {
       });
     });
 
+    it('should handle network monitoring setup errors', async () => {
+      // Make addEventListener throw
+      const originalAddEventListener = global.window.addEventListener;
+      global.window.addEventListener = vi.fn().mockImplementation(() => {
+        throw new Error('Network monitoring error');
+      });
+
+      // Register should still work
+      await pwaService.register();
+
+      // Should continue despite error
+      expect(mockWorkbox.register).toHaveBeenCalled();
+
+      // Restore original
+      global.window.addEventListener = originalAddEventListener;
+    });
+
+    it('should handle form queue initialization errors', async () => {
+      // Make localStorage throw
+      global.localStorage.getItem = vi.fn().mockImplementation(() => {
+        throw new Error('Storage error');
+      });
+
+      // Register should not fail
+      await pwaService.register();
+
+      // Should continue despite error
+      expect(mockWorkbox.register).toHaveBeenCalled();
+    });
+
+    it('should handle JSON parse errors in queue initialization', async () => {
+      // Set invalid JSON in localStorage
+      global.localStorage.getItem = vi.fn().mockReturnValue('{ invalid json');
+
+      // Register should not fail
+      await pwaService.register();
+
+      // Should continue despite error
+      expect(mockWorkbox.register).toHaveBeenCalled();
+    });
+
     it('should detect offline status correctly', () => {
       // Set navigator.onLine to false
       Object.defineProperty(global.navigator, 'onLine', {
@@ -356,6 +421,46 @@ describe('PWAService', () => {
         expect.any(String),
         expect.stringContaining('"test":"data"')
       );
+    });
+
+    it('should handle form queue storage errors', async () => {
+      // Make setItem throw
+      global.localStorage.setItem = vi.fn().mockImplementation(() => {
+        throw new Error('Storage error');
+      });
+
+      const result = await pwaService.queueFormSubmission('/api/test', 'POST', { test: true });
+
+      // Should return false on failure
+      expect(result).toBe(false);
+    });
+
+    it('should attempt to process queued forms when online', async () => {
+      // Create mock form data
+      const mockQueue = JSON.stringify([
+        {
+          id: '123',
+          url: '/api/test',
+          method: 'POST',
+          body: { test: true },
+          timestamp: Date.now(),
+        },
+      ]);
+
+      // Set in localStorage
+      global.localStorage.getItem = vi.fn().mockReturnValue(mockQueue);
+
+      // Set online
+      Object.defineProperty(global.navigator, 'onLine', {
+        configurable: true,
+        value: true,
+      });
+
+      // Call queueFormSubmission
+      await pwaService.queueFormSubmission('/api/new', 'POST', { new: true });
+
+      // Should try to process the queue
+      expect(global.fetch).toHaveBeenCalled();
     });
   });
 
