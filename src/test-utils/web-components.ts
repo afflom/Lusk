@@ -6,6 +6,9 @@
  */
 
 import { vi } from 'vitest';
+// We explicitly use MockedMathDemoElement in the interface for type safety,
+// even though TypeScript doesn't recognize its usage in the return type
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { MockedCounterElement, MockedAppElement, MockedMathDemoElement } from './types';
 import { appConfig } from '../utils/config';
 
@@ -122,22 +125,12 @@ export function createMockCounterElement(): MockedCounterElement {
 
 /**
  * Helper function to create a properly mocked MathDemoElement
+ * Exposes the internal properties for better testing
  * @returns A fully mocked MathDemoElement instance
  */
 export function createMockMathDemoElement(): MockedMathDemoElement {
   // Create the element
   const mathDemo = document.createElement('math-demo');
-
-  // Add internal state properties
-  Object.defineProperty(mathDemo, 'inputValue', {
-    value: '',
-    writable: true,
-  });
-
-  Object.defineProperty(mathDemo, 'operation', {
-    value: 'factorize',
-    writable: true,
-  });
 
   // Create a shadowRoot if it doesn't exist
   if (!mathDemo.shadowRoot) {
@@ -155,6 +148,22 @@ export function createMockMathDemoElement(): MockedMathDemoElement {
   const select = document.createElement('select');
   select.id = 'operation';
 
+  // Add operation options
+  [
+    { value: 'factorize', label: 'Prime Factorization' },
+    { value: 'isPrime', label: 'Check if Prime' },
+    { value: 'coordinates', label: 'Get Prime Coordinates' },
+    { value: 'nextPrime', label: 'Next Prime Number' },
+    { value: 'gcd', label: 'GCD (Enter two numbers, comma separated)' },
+    { value: 'lcm', label: 'LCM (Enter two numbers, comma separated)' },
+    { value: 'mobius', label: 'Möbius Function' },
+  ].forEach((operation) => {
+    const option = document.createElement('option');
+    option.value = operation.value;
+    option.textContent = operation.label;
+    select.appendChild(option);
+  });
+
   // Create input
   const input = document.createElement('input');
   input.id = 'number-input';
@@ -168,11 +177,16 @@ export function createMockMathDemoElement(): MockedMathDemoElement {
   const resultContainer = document.createElement('div');
   resultContainer.className = 'result-container';
 
+  const resultLabel = document.createElement('div');
+  resultLabel.className = 'result-label';
+  resultLabel.textContent = 'Result:';
+
   const resultBox = document.createElement('div');
   resultBox.id = 'result';
   resultBox.className = 'result';
   resultBox.textContent = '';
 
+  resultContainer.appendChild(resultLabel);
   resultContainer.appendChild(resultBox);
 
   // Add elements to form
@@ -184,35 +198,136 @@ export function createMockMathDemoElement(): MockedMathDemoElement {
   mathDemo.shadowRoot.appendChild(form);
   mathDemo.shadowRoot.appendChild(resultContainer);
 
-  // Add methods
-  const calculate = vi.fn(() => {
-    const resultElement = mathDemo.shadowRoot?.getElementById('result');
-    if (resultElement && mathDemo.inputValue) {
-      resultElement.textContent = `Result for ${String(mathDemo.operation)} on ${String(mathDemo.inputValue)}`;
+  // Add event listener to the button - similar to the real component
+  button.addEventListener('click', () => {
+    if (typeof mathDemo.calculate === 'function') {
+      mathDemo.calculate();
     }
   });
 
-  const connectedCallback = vi.fn(() => {
-    // No implementation needed for tests
+  // Hook into the component's properties for testing
+  Object.defineProperties(mathDemo, {
+    inputValue: {
+      get() {
+        return this._inputValue || '';
+      },
+      set(value) {
+        this._inputValue = value;
+      },
+    },
+    operation: {
+      get() {
+        return this._operation || 'factorize';
+      },
+      set(value) {
+        this._operation = value;
+      },
+    },
+    root: {
+      get() {
+        return this.shadowRoot;
+      },
+    },
+    _inputValue: { value: '', writable: true },
+    _operation: { value: 'factorize', writable: true },
   });
 
-  const disconnectedCallback = vi.fn(() => {
-    // No implementation needed for tests
+  // Add a mock calculate method for testing with more realistic results
+  const calculate = vi.fn(function () {
+    const resultElement = this.shadowRoot?.getElementById('result');
+
+    // Handle empty input validation
+    if (resultElement && !this.inputValue) {
+      resultElement.textContent = 'Please enter a number';
+      return;
+    }
+
+    if (resultElement && this.inputValue) {
+      // Perform mock calculations based on operation type
+      switch (this.operation) {
+        case 'factorize':
+          resultElement.textContent = JSON.stringify({
+            factors: [
+              [2, 1],
+              [3, 1],
+            ],
+          });
+          break;
+
+        case 'isPrime':
+          resultElement.textContent = JSON.stringify({
+            isPrime:
+              this.inputValue === '7' || this.inputValue === '17' || this.inputValue === '23',
+          });
+          break;
+
+        case 'coordinates':
+          resultElement.textContent = JSON.stringify({
+            factorization: [
+              [2, 1],
+              [3, 1],
+            ],
+            isNegative: this.inputValue.startsWith('-'),
+          });
+          break;
+
+        case 'nextPrime':
+          resultElement.textContent = JSON.stringify({
+            nextPrime: '7',
+          });
+          break;
+
+        case 'gcd':
+          if (!this.inputValue.includes(',')) {
+            resultElement.textContent = JSON.stringify({
+              error: 'Please enter two comma-separated numbers',
+            });
+          } else {
+            resultElement.textContent = JSON.stringify({
+              gcd: '6',
+            });
+          }
+          break;
+
+        case 'lcm':
+          if (!this.inputValue.includes(',')) {
+            resultElement.textContent = JSON.stringify({
+              error: 'Please enter two comma-separated numbers',
+            });
+          } else {
+            resultElement.textContent = JSON.stringify({
+              lcm: '12',
+            });
+          }
+          break;
+
+        case 'mobius':
+          if (this.inputValue === '1') {
+            resultElement.textContent = JSON.stringify({
+              mobius: 1,
+            });
+          } else if (this.inputValue.startsWith('-')) {
+            resultElement.textContent = JSON.stringify({
+              error: 'Möbius function requires a positive integer',
+            });
+          } else {
+            resultElement.textContent = JSON.stringify({
+              mobius: this.inputValue === '6' ? -1 : 0,
+            });
+          }
+          break;
+
+        default:
+          resultElement.textContent = JSON.stringify({
+            error: `Unknown operation: ${this.operation}`,
+          });
+      }
+    }
   });
 
-  // Add methods to element
+  // Assign the calculate method
   Object.defineProperty(mathDemo, 'calculate', {
     value: calculate,
-    writable: true,
-  });
-
-  Object.defineProperty(mathDemo, 'connectedCallback', {
-    value: connectedCallback,
-    writable: true,
-  });
-
-  Object.defineProperty(mathDemo, 'disconnectedCallback', {
-    value: disconnectedCallback,
     writable: true,
   });
 

@@ -25,11 +25,22 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-echo "Running unit and integration tests..."
-npm run test
+echo "Running unit tests..."
+npm run test:unit
 
 if [ $? -ne 0 ]; then
-  echo "❌ ERROR: Tests failed. Fix test issues before pushing."
+  echo "❌ ERROR: Unit tests failed. Fix test issues before pushing."
+  exit 1
+fi
+
+# Run integration tests with a preview server
+# This ensures consistent validation across local and CI environments
+echo "Running integration tests with preview server (following CLAUDE.md guidelines)..."
+npm run test:e2e
+
+if [ $? -ne 0 ]; then
+  echo "❌ ERROR: Integration tests failed. Fix integration test issues before pushing."
+  echo "For details, see the test logs above."
   exit 1
 fi
 
