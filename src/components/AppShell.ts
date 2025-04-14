@@ -296,8 +296,8 @@ export class AppShellElement extends HTMLElement {
       const navigation = this._root.querySelector('app-navigation') as NavigationElement;
       if (!navigation) return;
 
-      // Update active item
-      navigation.setActive(currentRoute.id);
+      // Update active item without triggering a navigation event to avoid infinite loops
+      navigation.setActive(currentRoute.id, false);
     } catch (error) {
       logger.error(
         'Error updating navigation state:',

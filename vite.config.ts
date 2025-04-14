@@ -17,6 +17,7 @@ export default defineConfig({
         orientation: 'any',
         lang: 'en',
         dir: 'ltr',
+        // Use relative paths for GitHub Pages deployment compatibility
         start_url: './?source=pwa',
         scope: './',
         categories: ['education', 'utilities', 'productivity'],

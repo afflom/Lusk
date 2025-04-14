@@ -311,7 +311,7 @@ export class NavigationElement extends HTMLElement {
    * Set the active navigation item
    * @param id - ID of the item to set as active
    */
-  setActive(id: string): void {
+  setActive(id: string, triggerEvent = true): void {
     try {
       // Update internal state
       this._items = this.updateItemsActiveState(this._items, id);
@@ -322,14 +322,16 @@ export class NavigationElement extends HTMLElement {
       // Expand parent items if this is a child item
       this.expandParentItems(id);
 
-      // Dispatch navigation event
-      this.dispatchEvent(
-        new CustomEvent('navigation', {
-          detail: { id },
-          bubbles: true,
-          composed: true,
-        })
-      );
+      // Dispatch navigation event only if requested (to avoid infinite loops)
+      if (triggerEvent) {
+        this.dispatchEvent(
+          new CustomEvent('navigation', {
+            detail: { id },
+            bubbles: true,
+            composed: true,
+          })
+        );
+      }
     } catch (error) {
       logger.error(
         'Error in NavigationElement setActive:',
