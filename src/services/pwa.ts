@@ -400,35 +400,98 @@ export class PWAService {
   }
 
   /**
-   * Show enhanced update notification
-   * Uses a non-blocking UI notification instead of a modal dialog
+   * Show enhanced update notification with improved UX
+   * Uses a more persistent UI notification with clearer actions
    */
   private showUpdateNotification(): void {
+    // Show more informative update notification based on offline status
+    const updateMessage = navigator.onLine
+      ? 'A new version is available. <button id="pwa-update-button" class="update-now-button">Update now</button> <button id="pwa-update-later" class="update-later-button">Later</button>'
+      : 'A new version is available and will be applied when you\'re back online. <button id="pwa-update-button" class="update-now-button">Update now</button>';
+
+    // Show notification with longer timeout
     this.showNotification(
-      'A new version is available. <button id="pwa-update-button">Update now</button>',
+      updateMessage,
       'info',
-      10000 // Longer timeout for update notification
+      30000 // Longer timeout for update notification
     );
 
-    // Add event listener to the update button
+    // Add event listeners with improved handling
     setTimeout(() => {
+      // Update now button
       const updateButton = document.getElementById('pwa-update-button');
       if (updateButton) {
         updateButton.addEventListener('click', () => {
+          // Show updating notification
+          this.showNotification('Updating application...', 'info', 3000);
+
           // Skip waiting - this will trigger the 'controlling' event
           if (this.wb) {
-            this.wb.messageSW({ type: 'SKIP_WAITING' }).catch((error) => {
-              const errorMsg = error instanceof Error ? error.message : String(error);
-              logger.error('Error sending skip waiting message: ' + errorMsg);
-            });
+            this.wb
+              .messageSW({ type: 'SKIP_WAITING' })
+              .then(() => {
+                // Update success will be handled by the 'controlling' event which refreshes the page
+                logger.info('Update message sent successfully');
+              })
+              .catch((error) => {
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                logger.error('Error sending skip waiting message: ' + errorMsg);
+                this.showNotification(
+                  'Update failed. Please reload the page manually.',
+                  'error',
+                  5000
+                );
+              });
           }
         });
       }
+
+      // "Later" button
+      const laterButton = document.getElementById('pwa-update-later');
+      if (laterButton) {
+        laterButton.addEventListener('click', () => {
+          // Remove current notification
+          const notification = document.getElementById('pwa-notification');
+          if (notification) {
+            notification.remove();
+          }
+
+          // Remind again later
+          setTimeout(
+            () => {
+              if (this.updateAvailable) {
+                this.showUpdateNotification();
+              }
+            },
+            60 * 60 * 1000
+          ); // Remind again in 1 hour
+        });
+      }
     }, 100);
+
+    // Automatically apply update during idle periods if update has been pending for a while
+    if (navigator.onLine && 'requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(() => {
+        // Only auto-update if the notification has been shown for at least 2 minutes
+        setTimeout(
+          () => {
+            if (this.updateAvailable) {
+              logger.info('Auto-applying update during idle period');
+              if (this.wb) {
+                this.wb.messageSW({ type: 'SKIP_WAITING' }).catch((error) => {
+                  logger.error('Error in auto-update: ' + error);
+                });
+              }
+            }
+          },
+          2 * 60 * 1000
+        ); // 2 minutes
+      });
+    }
   }
 
   /**
-   * Show a notification to the user
+   * Show a notification to the user with enhanced styling
    * @param message The notification message (can include HTML)
    * @param type The notification type (info, success, warning, error)
    * @param timeout Time in ms before notification disappears (default: 5000)
@@ -451,7 +514,7 @@ export class PWAService {
     }
 
     // Create new notification
-    createNotification(message, {
+    const notification = createNotification(message, {
       id: 'pwa-notification',
       type,
       parent: document.body,
@@ -459,7 +522,47 @@ export class PWAService {
       closeAfterMs: timeout,
     });
 
-    // Set timeout for auto-removal
+    // Add button styles if this is an update notification
+    if (message.includes('update-now-button') || message.includes('update-later-button')) {
+      // Add styles for update buttons
+      const style = document.createElement('style');
+      style.textContent = `
+        #pwa-notification .update-now-button {
+          background-color: #1a73e8;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          padding: 6px 12px;
+          margin-left: 8px;
+          cursor: pointer;
+          font-weight: bold;
+          transition: background-color 0.2s;
+        }
+        
+        #pwa-notification .update-now-button:hover {
+          background-color: #1557b0;
+        }
+        
+        #pwa-notification .update-later-button {
+          background-color: transparent;
+          color: #444;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          padding: 6px 12px;
+          margin-left: 8px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        
+        #pwa-notification .update-later-button:hover {
+          background-color: #f1f1f1;
+        }
+      `;
+
+      notification.appendChild(style);
+    }
+
+    // Set timeout for auto-removal if needed
     if (timeout > 0) {
       this.notificationTimeout = window.setTimeout(() => {
         const notification = document.getElementById('pwa-notification');

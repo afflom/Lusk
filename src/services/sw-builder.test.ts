@@ -301,7 +301,7 @@ describe('sw-builder', () => {
       const template = mockWriteFileSync.mock.calls[0][1];
 
       // Check that the service worker contains offline math library caching
-      expect(template).toContain('// Pre-cache static resources');
+      expect(template).toContain('// Cache app shell resources');
       expect(template).toContain('caches.open(CACHE_NAMES.static)');
     });
 
@@ -316,12 +316,12 @@ describe('sw-builder', () => {
       const template = mockWriteFileSync.mock.calls[0][1];
 
       // Verify the service worker includes proper caching for JS files
-      expect(template).toContain('url.pathname.match(/\\.(js|css)$/)');
+      expect(template).toContain('pathname.match(/\\.(js|css)$/)');
       expect(template).toContain('return CACHE_NAMES.static');
 
       // Verify proper fetch event handling for JS resources (math library is a JS resource)
       expect(template).toContain('if (');
-      expect(template).toContain('url.pathname.match(/\\.(js|css|woff2?|ttf|otf|eot)$/)');
+      expect(template).toContain('pathname.match(/\\.(js|css|woff2?|ttf|otf|eot)$/)');
       expect(template).toContain('event.respondWith(cacheFirst(event.request))');
     });
   });

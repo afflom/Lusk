@@ -1,6 +1,6 @@
 /**
  * App Shell component
- * Provides the overall structure for the PWA
+ * Provides the overall structure for the PWA with optimized loading
  */
 import { THEME } from '../utils/constants';
 import * as logger from '../utils/logger';
@@ -50,7 +50,7 @@ export class AppShellElement extends HTMLElement {
   }
 
   /**
-   * Initialize the component styles
+   * Initialize the component styles with critical CSS inlining
    */
   private initStyles(): void {
     const style = document.createElement('style');
@@ -104,6 +104,23 @@ export class AppShellElement extends HTMLElement {
       
       .router-outlet {
         margin-top: ${THEME.spacing.lg};
+        position: relative;
+      }
+      
+      .router-outlet.loading::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, ${THEME.colors.primary}, transparent);
+        animation: loading-progress 1.5s infinite;
+      }
+      
+      @keyframes loading-progress {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
       }
       
       /* Responsive adjustments */
@@ -290,7 +307,7 @@ export class AppShellElement extends HTMLElement {
   }
 
   /**
-   * Render the app shell
+   * Render the app shell with optimized loading
    */
   private render(): void {
     try {
@@ -318,9 +335,9 @@ export class AppShellElement extends HTMLElement {
       const main = document.createElement('main');
       main.className = 'app-main';
 
-      // Create router outlet
+      // Create router outlet with loading indicator
       const routerOutlet = document.createElement('div');
-      routerOutlet.className = 'router-outlet';
+      routerOutlet.className = 'router-outlet loading';
       main.appendChild(routerOutlet);
 
       // Create a hidden math-demo component for testing compatibility
@@ -359,6 +376,11 @@ export class AppShellElement extends HTMLElement {
 
       // Update navigation
       (navigation as NavigationElement).items = navItems;
+
+      // Remove loading indicator once everything is set up
+      setTimeout(() => {
+        routerOutlet.classList.remove('loading');
+      }, 1000);
     } catch (error) {
       logger.error(
         'Error rendering app shell:',

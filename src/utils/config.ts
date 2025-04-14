@@ -56,16 +56,25 @@ export const swConfig = {
     fonts: `ts-pwa-fonts-v${packageVersion}`,
     offline: `ts-pwa-offline-v${packageVersion}`,
   },
-  // Resources to pre-cache - use relative paths for GitHub Pages compatibility
-  precacheUrls: [
+  // App Shell resources for fast loading experience
+  appShellResources: [
     './',
     './index.html',
     './favicon.ico',
+    './main.js',
+    './style.css',
+    './offline.html',
+    './offline-image.png',
     './robots.txt',
     './apple-touch-icon.png',
     './pwa-192x192.png',
     './pwa-512x512.png',
   ],
+
+  // All resources to pre-cache - use relative paths for GitHub Pages compatibility
+  get precacheUrls(): string[] {
+    return this.appShellResources;
+  },
   // Maximum age for cache items in milliseconds (7 days)
   maxCacheAge: 7 * 24 * 60 * 60 * 1000,
   // Offline fallback pages

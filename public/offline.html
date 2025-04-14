@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a73e8">
   <title>You're Offline - Universal Number Coordinates Calculator</title>
   <link rel="icon" href="./favicon.ico">
   <style>
+    /* Critical CSS for app shell appearance */
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       margin: 0;
@@ -13,7 +15,7 @@
       display: flex;
       flex-direction: column;
       min-height: 100vh;
-      background-color: #f5f5f5;
+      background-color: #f9f9f9;
       color: #333;
     }
     header {
@@ -35,16 +37,27 @@
       text-align: center;
     }
     h1 {
-      font-size: 2em;
+      font-size: 1.75em;
       margin-bottom: 0.5em;
+    }
+    h2 {
+      font-size: 1.5em;
+      margin-bottom: 1em;
+      color: #1a73e8;
     }
     p {
       margin: 0.5em 0;
       line-height: 1.5;
     }
     .offline-icon {
-      font-size: 72px;
+      font-size: 64px;
       margin-bottom: 24px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+      100% { transform: scale(1); opacity: 1; }
     }
     .btn {
       background-color: #1a73e8;
@@ -54,10 +67,23 @@
       border-radius: 4px;
       font-size: 16px;
       cursor: pointer;
-      margin-top: 24px;
+      margin-top: 16px;
+      transition: background-color 0.2s, transform 0.1s;
     }
     .btn:hover {
       background-color: #185abc;
+    }
+    .btn:active {
+      transform: scale(0.97);
+    }
+    .btn-secondary {
+      background-color: transparent;
+      color: #1a73e8;
+      border: 1px solid #1a73e8;
+      margin-left: 10px;
+    }
+    .btn-secondary:hover {
+      background-color: rgba(26, 115, 232, 0.05);
     }
     footer {
       padding: 16px;
@@ -65,6 +91,112 @@
       font-size: 0.9em;
       background-color: #f0f0f0;
       border-top: 1px solid #ddd;
+    }
+    .offline-features {
+      margin: 24px 0;
+      text-align: left;
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      width: 100%;
+      max-width: 500px;
+    }
+    .feature-title {
+      color: #1a73e8;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    .feature-list {
+      list-style-type: none;
+      padding-left: 0;
+    }
+    .feature-list li {
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      align-items: center;
+    }
+    .feature-list li::before {
+      content: "✓";
+      color: #4CAF50;
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    .connection-status {
+      position: fixed;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #333;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 100;
+    }
+    .connection-status.visible {
+      opacity: 1;
+    }
+    .calculator-container {
+      max-width: 400px;
+      width: 100%;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      display: none;
+    }
+    .calculator-title {
+      font-size: 1.2em;
+      margin-bottom: 15px;
+      color: #1a73e8;
+    }
+    .calc-controls {
+      display: flex;
+      margin-bottom: 15px;
+    }
+    .calc-input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px 0 0 4px;
+      font-size: 16px;
+    }
+    .calc-btn {
+      padding: 10px 15px;
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 0 4px 4px 0;
+      cursor: pointer;
+    }
+    .calc-result {
+      margin-top: 15px;
+      padding: 10px;
+      background-color: #f5f5f5;
+      border-radius: 4px;
+      min-height: 100px;
+    }
+    @media (max-width: 600px) {
+      .offline-features {
+        padding: 15px;
+      }
+      h1 {
+        font-size: 1.5em;
+      }
+      h2 {
+        font-size: 1.3em;
+      }
+      .offline-icon {
+        font-size: 48px;
+      }
+      main {
+        padding: 16px;
+      }
     }
   </style>
 </head>
@@ -74,20 +206,170 @@
   </header>
   <main>
     <div class="offline-icon">🔌</div>
-    <h2>You're offline</h2>
-    <p>Sorry, you don't have an internet connection right now.</p>
-    <p>Some features require an internet connection to work properly.</p>
-    <p>Please check your connection and try again.</p>
-    <button class="btn" onclick="window.location.reload()">Try Again</button>
+    <h2>You're currently offline</h2>
+    <p>Internet connection is unavailable at the moment.</p>
+    
+    <div class="offline-features">
+      <h3 class="feature-title">Available offline features:</h3>
+      <ul class="feature-list">
+        <li>Basic number coordinate calculation</li>
+        <li>Prime factorization</li>
+        <li>GCD/LCM operations</li>
+        <li>Recent calculation history</li>
+      </ul>
+    </div>
+    
+    <div>
+      <button class="btn" id="try-again-btn" onclick="window.location.reload()">Try Again</button>
+      <button class="btn btn-secondary" id="show-calculator-btn">Use Offline Calculator</button>
+    </div>
+    
+    <div class="calculator-container" id="offline-calculator">
+      <div class="calculator-title">Offline Prime Calculator</div>
+      <div class="calc-controls">
+        <input type="number" class="calc-input" id="calc-input" placeholder="Enter a number...">
+        <button class="calc-btn" id="calc-btn">Calculate</button>
+      </div>
+      <div class="calc-result" id="calc-result">
+        Enter a number to see its prime factorization and coordinates.
+      </div>
+    </div>
   </main>
+  
+  <div class="connection-status" id="connection-status"></div>
+  
   <footer>
-    <p>&copy; Afflom - Universal Number Coordinates Calculator</p>
+    <p>&copy; Universal Number Coordinates Calculator | Designed for offline use</p>
   </footer>
+  
   <script>
-    // Check for online status changes
-    window.addEventListener('online', function() {
-      window.location.reload();
+    // Basic offline functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      // Show calculator button functionality
+      const showCalculatorBtn = document.getElementById('show-calculator-btn');
+      const calculatorContainer = document.getElementById('offline-calculator');
+      
+      if (showCalculatorBtn && calculatorContainer) {
+        showCalculatorBtn.addEventListener('click', function() {
+          calculatorContainer.style.display = 'block';
+          showCalculatorBtn.style.display = 'none';
+          document.getElementById('calc-input').focus();
+        });
+      }
+      
+      // Basic calculator functionality
+      const calcBtn = document.getElementById('calc-btn');
+      const calcInput = document.getElementById('calc-input');
+      const calcResult = document.getElementById('calc-result');
+      
+      if (calcBtn && calcInput && calcResult) {
+        calcBtn.addEventListener('click', function() {
+          calculatePrimeFactors();
+        });
+        
+        calcInput.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') {
+            calculatePrimeFactors();
+          }
+        });
+      }
+      
+      // Connection status checking
+      const connectionStatus = document.getElementById('connection-status');
+      
+      window.addEventListener('online', function() {
+        if (connectionStatus) {
+          connectionStatus.textContent = '✓ You are back online';
+          connectionStatus.style.backgroundColor = '#4CAF50';
+          connectionStatus.classList.add('visible');
+          
+          setTimeout(function() {
+            connectionStatus.classList.remove('visible');
+            // Reload after showing message
+            setTimeout(function() {
+              window.location.reload();
+            }, 1000);
+          }, 2000);
+        }
+      });
+      
+      window.addEventListener('offline', function() {
+        if (connectionStatus) {
+          connectionStatus.textContent = '✗ You are offline';
+          connectionStatus.style.backgroundColor = '#F44336';
+          connectionStatus.classList.add('visible');
+          
+          setTimeout(function() {
+            connectionStatus.classList.remove('visible');
+          }, 2000);
+        }
+      });
+      
+      // Check connection every 5 seconds
+      setInterval(function() {
+        if (navigator.onLine && window.location.pathname.includes('offline')) {
+          window.location.reload();
+        }
+      }, 5000);
     });
+    
+    // Prime factorization function for offline use
+    function calculatePrimeFactors() {
+      const input = document.getElementById('calc-input').value;
+      const result = document.getElementById('calc-result');
+      
+      if (!input || isNaN(input) || input < 1) {
+        result.innerHTML = 'Please enter a valid positive number.';
+        return;
+      }
+      
+      const num = parseInt(input, 10);
+      
+      // Simple prime factorization algorithm
+      let n = num;
+      const factors = [];
+      
+      // Handle 1 as a special case
+      if (n === 1) {
+        result.innerHTML = '<strong>Number: 1</strong><br>' +
+          'Prime Factorization: 1 (special case)<br>' +
+          'Universal Coordinates: []';
+        return;
+      }
+      
+      // Check for factor of 2
+      while (n % 2 === 0) {
+        factors.push(2);
+        n = n / 2;
+      }
+      
+      // Check for other factors
+      for (let i = 3; i <= Math.sqrt(n); i += 2) {
+        while (n % i === 0) {
+          factors.push(i);
+          n = n / i;
+        }
+      }
+      
+      // If n is a prime number greater than 2
+      if (n > 2) {
+        factors.push(n);
+      }
+      
+      // Count occurrences of each prime factor to create coordinates
+      const coordinates = [];
+      const uniqueFactors = [...new Set(factors)];
+      
+      uniqueFactors.forEach(factor => {
+        const count = factors.filter(f => f === factor).length;
+        coordinates.push([factor, count]);
+      });
+      
+      // Format the output
+      result.innerHTML = '<strong>Number: ' + num + '</strong><br>' +
+        'Prime Factorization: ' + factors.join(' × ') + '<br>' +
+        'Universal Coordinates: [' + coordinates.map(c => '[' + c.join(', ') + ']').join(', ') + ']';
+    }
   </script>
 </body>
 </html>

@@ -23,7 +23,10 @@ const CACHE_NAMES = {
   offline: '${swConfig.cacheNames.offline}'
 };
 
-// Resources to pre-cache
+// App Shell resources - key resources that should load first
+const APP_SHELL_RESOURCES = ${JSON.stringify(swConfig.appShellResources, null, 2)};
+
+// All resources to pre-cache
 const PRECACHE_URLS = ${JSON.stringify(swConfig.precacheUrls, null, 2)};
 
 // Offline fallback pages
@@ -317,22 +320,29 @@ async function cleanupCaches() {
   }
 }
 
-// Install event - precache static resources
+// Install event - precache app shell resources with prioritization
 self.addEventListener('install', event => {
   event.waitUntil(
-    Promise.all([
-      // Pre-cache static resources
-      caches.open(CACHE_NAMES.static)
-        .then(cache => cache.addAll(PRECACHE_URLS)),
+    (async () => {
+      // Open static and offline caches
+      const staticCache = await caches.open(CACHE_NAMES.static);
+      const offlineCache = await caches.open(CACHE_NAMES.offline);
       
-      // Pre-cache offline fallbacks
-      caches.open(CACHE_NAMES.offline)
-        .then(cache => cache.addAll([
-          OFFLINE_FALLBACKS.document,
-          OFFLINE_FALLBACKS.image
-        ]))
-    ])
-    .then(() => self.skipWaiting())
+      // Cache app shell resources first (for instant loading)
+      console.log('Caching app shell resources...');
+      await staticCache.addAll(APP_SHELL_RESOURCES);
+      
+      // Cache offline fallbacks
+      console.log('Caching offline fallbacks...');
+      await offlineCache.addAll([
+        OFFLINE_FALLBACKS.document,
+        OFFLINE_FALLBACKS.image
+      ]);
+      
+      // Skip waiting to activate immediately
+      console.log('App shell cached successfully');
+      return self.skipWaiting();
+    })()
   );
 });
 
@@ -344,7 +354,12 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Fetch event - apply different strategies based on request type
+// Check if a URL is part of the App Shell
+function isAppShellResource(pathname) {
+  return APP_SHELL_RESOURCES.includes(pathname);
+}
+
+// Fetch event - apply different strategies based on request type with optimized App Shell handling
 self.addEventListener('fetch', event => {
   // Handle offline form submissions
   if ((event.request.method === 'POST' || event.request.method === 'PUT') 
@@ -365,26 +380,28 @@ self.addEventListener('fetch', event => {
   
   // URL object for path checking
   const url = new URL(event.request.url);
+  const pathname = url.pathname === '/' ? './' : url.pathname;
   
   // Apply appropriate strategy based on request type
   if (
-    // Static assets - use cache first
-    url.pathname.match(/\\.(js|css|woff2?|ttf|otf|eot)$/) ||
-    PRECACHE_URLS.includes(url.pathname)
+    // App Shell resources - highest priority, cache first
+    isAppShellResource(pathname) ||
+    // Static assets - also use cache first
+    pathname.match(/\\.(js|css|woff2?|ttf|otf|eot)$/)
   ) {
     event.respondWith(cacheFirst(event.request));
   } 
   else if (
     // Images - use stale-while-revalidate
-    url.pathname.match(/\\.(jpe?g|png|gif|svg|webp|ico)$/)
+    pathname.match(/\\.(jpe?g|png|gif|svg|webp|ico)$/)
   ) {
     event.respondWith(staleWhileRevalidate(event.request));
   }
   else if (
     // HTML pages - use network first
     event.request.mode === 'navigate' ||
-    url.pathname.endsWith('/') ||
-    url.pathname.endsWith('.html')
+    pathname.endsWith('/') ||
+    pathname.endsWith('.html')
   ) {
     event.respondWith(networkFirst(event.request));
   }
