@@ -289,8 +289,7 @@ describe('Service Worker Caching Strategies', () => {
         await cache.put(request, networkResponse.clone());
 
         return networkResponse;
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (_) {
+      } catch {
         // If both cache and network fail, return offline fallback
         return getOfflineFallback(request);
       }
@@ -438,8 +437,7 @@ describe('Service Worker Caching Strategies', () => {
         await cache.put(request, networkResponse.clone());
 
         return networkResponse;
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (_) {
+      } catch {
         // If network fails, try to get from cache
         const cacheResponse = await selfMock.caches.match(request);
         if (cacheResponse) {
@@ -887,12 +885,12 @@ describe('Service Worker Caching Strategies', () => {
           // Register for sync when online
           try {
             await selfMock.registration.sync.register(SYNC_QUEUE_NAME);
-          } catch (_) {
+          } catch {
             // Continue anyway - we've saved the data
           }
 
           return true;
-        } catch (_) {
+        } catch {
           // Failed to queue form submission
           return false;
         }
@@ -907,7 +905,7 @@ describe('Service Worker Caching Strategies', () => {
             body: JSON.stringify(body),
           });
           return response.ok;
-        } catch (_) {
+        } catch {
           // Failed to submit form
           return false;
         }

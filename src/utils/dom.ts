@@ -72,7 +72,7 @@ export function getOrCreateElement<T extends HTMLElement>(selector: string, crea
 /**
  * Notification options interface
  */
-interface NotificationOptions {
+export interface NotificationOptions {
   id?: string;
   type?: 'info' | 'success' | 'warning' | 'error';
   parent?: HTMLElement | null;

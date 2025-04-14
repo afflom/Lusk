@@ -7,6 +7,7 @@ import * as logger from '../utils/logger';
 import { routerService, Route } from '../services/router';
 import { pwaService } from '../services/pwa';
 import { initPWAAnalytics, trackUsageEvent, UsageEvent } from '../utils/pwa-analytics';
+import { initPWATestHooks } from '../utils/pwa-global';
 import './Navigation';
 import { NavigationElement } from './Navigation';
 import './MathDemo';
@@ -158,6 +159,9 @@ export class AppShellElement extends HTMLElement {
    */
   private initializePWA(): void {
     try {
+      // Initialize PWA test hooks - only exposes APIs in test environments
+      initPWATestHooks(); // This only exposes APIs in test environments
+
       // Register service worker for PWA
       pwaService
         .register()
