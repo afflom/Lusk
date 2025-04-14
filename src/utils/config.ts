@@ -56,13 +56,13 @@ export const swConfig = {
     fonts: `ts-pwa-fonts-v${packageVersion}`,
     offline: `ts-pwa-offline-v${packageVersion}`,
   },
-  // App Shell resources for fast loading experience
+  // App Shell resources for fast loading experience - using relative paths with resource type for GitHub Pages compatibility
   appShellResources: [
     './',
     './index.html',
     './favicon.ico',
-    './main.js',
-    './style.css',
+    './assets/index-*.js', // Use wildcard to match hashed filenames
+    './assets/index-*.css',
     './offline.html',
     './offline-image.png',
     './robots.txt',

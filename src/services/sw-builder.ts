@@ -24,10 +24,14 @@ const CACHE_NAMES = {
 };
 
 // App Shell resources - key resources that should load first
+// Use wildcards for assets that have cache-busting hashes
 const APP_SHELL_RESOURCES = ${JSON.stringify(swConfig.appShellResources, null, 2)};
 
 // All resources to pre-cache
 const PRECACHE_URLS = ${JSON.stringify(swConfig.precacheUrls, null, 2)};
+
+// Get the current scope - this helps with subdirectory deployments (e.g., GitHub Pages)
+const SCOPE = self.registration.scope;
 
 // Offline fallback pages
 const OFFLINE_FALLBACKS = {
@@ -356,7 +360,37 @@ self.addEventListener('activate', event => {
 
 // Check if a URL is part of the App Shell
 function isAppShellResource(pathname) {
-  return APP_SHELL_RESOURCES.includes(pathname);
+  // Handle GitHub Pages subdirectory paths
+  let normalizedPath = pathname;
+  
+  // If deployed in a subdirectory (like GitHub Pages /Lusk/), normalize the path
+  if (SCOPE && SCOPE !== '/' && !SCOPE.endsWith('/')) {
+    const scopeWithSlash = SCOPE + '/';
+    if (pathname.startsWith(scopeWithSlash)) {
+      // Remove the scope prefix to match against app shell resources
+      normalizedPath = pathname.substring(scopeWithSlash.length - 1);
+      if (normalizedPath === '') normalizedPath = './';
+      if (!normalizedPath.startsWith('./')) normalizedPath = './' + normalizedPath;
+    }
+  }
+  
+  // Check if the normalized path is in our app shell resources
+  if (APP_SHELL_RESOURCES.includes(normalizedPath)) {
+    return true;
+  }
+  
+  // Check for wildcard matches (for hash-based filenames)
+  for (const resource of APP_SHELL_RESOURCES) {
+    if (resource.includes('*')) {
+      const pattern = resource.replace(/[*]/g, '[\\w-]+');
+      const regExp = new RegExp(pattern);
+      if (regExp.test(normalizedPath)) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
 }
 
 // Fetch event - apply different strategies based on request type with optimized App Shell handling

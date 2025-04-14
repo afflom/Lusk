@@ -651,8 +651,18 @@ export class RouterService {
         return false;
       }
 
-      // Find matching route
-      const match = this.findRouteByPath(path);
+      // Handle GitHub Pages subdirectory paths
+      let normalizedPath = path;
+
+      // Check if this is a GitHub Pages subdirectory path (e.g., /Lusk/)
+      if (path.includes('/Lusk/')) {
+        // Remove the subdirectory part for route matching
+        normalizedPath = path.replace(/\/Lusk\//g, '/');
+        logger.info(`Normalized GitHub Pages path from "${path}" to "${normalizedPath}"`);
+      }
+
+      // Find matching route using normalized path
+      const match = this.findRouteByPath(normalizedPath);
       let route: Route;
       let routeParams: RouteParams = { ...params };
 
@@ -662,7 +672,9 @@ export class RouterService {
       } else {
         // If no route found, use default or first route
         route = this.routes.find((r) => r.default) || this.routes[0];
-        logger.warn(`No route found for path "${path}", using ${route?.id || 'fallback'} route`);
+        logger.warn(
+          `No route found for path "${normalizedPath}", using ${route?.id || 'fallback'} route`
+        );
 
         if (!route) {
           throw new Error(`No routes available for navigation`);
