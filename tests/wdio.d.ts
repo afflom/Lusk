@@ -24,4 +24,9 @@ declare function after(callback: () => void | Promise<void>): void;
 interface Window {
   __console_errors?: string[];
   __console_warnings?: string[];
+  __TEST_ENV?: boolean;
+  __pwaTestingHelpers?: {
+    pwaService: any;
+    createNotification: (message: string, options?: any) => HTMLElement;
+  };
 }
