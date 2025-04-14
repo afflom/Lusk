@@ -145,6 +145,7 @@ export async function waitForWebComponentsReady(timeout = 5000) {
           const appShellDefined = customElements.get('app-shell') !== undefined;
           const mathDemoDefined = customElements.get('math-demo') !== undefined;
           const counterDefined = customElements.get('app-counter') !== undefined;
+          const navigationDefined = customElements.get('app-navigation') !== undefined;
 
           // Check for instances in the DOM
           const appShell = document.querySelector('app-shell');
@@ -158,12 +159,13 @@ export async function waitForWebComponentsReady(timeout = 5000) {
             (mathDemo && mathDemo.shadowRoot && mathDemo.shadowRoot.childNodes.length > 0);
 
           return {
-            defined: appShellDefined && mathDemoDefined && counterDefined,
+            defined: appShellDefined && mathDemoDefined && counterDefined && navigationDefined,
             rendered: appShellReady && mathDemoReady,
             ready:
               appShellDefined &&
               mathDemoDefined &&
               counterDefined &&
+              navigationDefined &&
               appShellReady &&
               mathDemoReady,
           };
