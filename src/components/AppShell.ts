@@ -237,7 +237,7 @@ export class AppShellElement extends HTMLElement {
     try {
       const customEvent = event as CustomEvent<{ id: string }>;
       const { id } = customEvent.detail;
-      routerService.navigateToRoute(id);
+      void routerService.navigateToRoute(id);
 
       // Update navigation highlights
       this.updateNavigationState();
@@ -256,7 +256,7 @@ export class AppShellElement extends HTMLElement {
     try {
       const customEvent = event as CustomEvent<{ page: string }>;
       const { page } = customEvent.detail;
-      routerService.navigateToRoute(page);
+      void routerService.navigateToRoute(page);
 
       // Update navigation highlights
       this.updateNavigationState();
