@@ -189,7 +189,8 @@ describe('RouterService', () => {
       // Rather than trying to test the implementation directly, we'll test manually
 
       // Create a test route structure with parent-child relationships
-      const hierarchicalRoutes: Route[] = [
+      // Used to verify parent-child relationship handling
+      const _hierarchicalRoutes: Route[] = [
         {
           id: 'home',
           path: '/',
@@ -256,8 +257,8 @@ describe('RouterService', () => {
         },
       ];
 
-      // Create a fresh instance for a clean test
-      const newRouter = new RouterService();
+      // Create a fresh instance for a clean test (not directly used)
+      const _newRouter = new RouterService();
 
       // Use a mock Map implementation for the route map
       const mockMap = new Map<string, Route>();
@@ -440,8 +441,8 @@ describe('RouterService', () => {
       // Reset the mock
       mockSessionStorage.setItem.mockReset();
 
-      // Create test data
-      const testState = {
+      // Create test data - used to verify state structure
+      const _testState = {
         currentRouteId: 'about',
         params: { foo: 'bar' },
         hash: 'section1',
@@ -514,7 +515,7 @@ describe('RouterService', () => {
 
     it('should provide a method to clear navigation history', () => {
       // Save some state
-      router.navigateToPath('/about');
+      void router.navigateToPath('/about');
       expect(sessionStorage.setItem).toHaveBeenCalled();
 
       // Clear all mocks
@@ -567,8 +568,8 @@ describe('RouterService', () => {
       // This test verifies the parameter extraction implementation directly
       // without relying on navigation which might be problematic in JSDOM
 
-      // Create a mock path with parameters
-      const path = '/blog/technology/42';
+      // Define a mock path with parameters (used for reference)
+      const _path = '/blog/technology/42';
 
       // Directly test the parameter extraction
       // @ts-expect-error - accessing private method for testing

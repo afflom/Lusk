@@ -87,7 +87,7 @@ export class RouterService {
 
       // Initial navigation based on current URL if state not restored
       if (!this.currentRoute) {
-        this.navigateToPath(window.location.pathname + window.location.search, false);
+        void this.navigateToPath(window.location.pathname + window.location.search, false);
       }
 
       logger.info('Router initialized with', routes.length, 'routes');
@@ -118,13 +118,19 @@ export class RouterService {
     // Second pass: set up children arrays
     routes.forEach((route) => {
       if (route.parentId && routeMap.has(route.parentId)) {
-        const parent = routeMap.get(route.parentId)!;
+        const parent = routeMap.get(route.parentId);
+        if (!parent) {
+          return;
+        }
         if (!parent.children) {
           parent.children = [];
         }
         // Only add if not already a child
         if (!parent.children.some((child) => child.id === route.id)) {
-          parent.children.push(routeMap.get(route.id)!);
+          const routeObj = routeMap.get(route.id);
+          if (routeObj) {
+            parent.children.push(routeObj);
+          }
         }
       }
     });
@@ -241,9 +247,9 @@ export class RouterService {
       const hash = window.location.hash.slice(1); // Remove the # character
 
       // Use the state from history if available
-      const params = event.state?.params || {};
+      const params = event.state?.params || ({} as RouteParams);
 
-      this.navigateToPath(path, false, params, hash);
+      void this.navigateToPath(path, false, params, hash);
     } catch (error) {
       logger.error(
         'Error handling popstate event:',
@@ -342,7 +348,7 @@ export class RouterService {
       }
 
       // Handle as a regular navigation
-      this.navigateToPath(path, true, {}, hash);
+      void this.navigateToPath(path, true, {}, hash);
       event.preventDefault();
     } catch (error) {
       logger.error(
